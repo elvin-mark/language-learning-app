@@ -2,7 +2,8 @@
 from sqlalchemy import Column, Integer, String, Float, DateTime, Text
 from datetime import datetime
 import json
-from .base import Base # Import Base from base.py
+from .base import Base  # Import Base from base.py
+
 
 class UserStatus(Base):
     __tablename__ = "user_status"
@@ -12,19 +13,21 @@ class UserStatus(Base):
     grammar_mastered_count = Column(Integer)
     most_recent_weak_area = Column(String)
 
+
 class GrammarMastery(Base):
     __tablename__ = "grammar_mastery"
     mastery_id = Column(Integer, primary_key=True, autoincrement=True)
     pattern = Column(String, unique=True)
     mastery_score = Column(Float)
     last_reviewed = Column(DateTime, default=datetime.utcnow)
-    weakness_flags = Column(Text) # Stored as JSON string
+    weakness_flags = Column(Text)  # Stored as JSON string
 
     def set_weakness_flags(self, flags):
         self.weakness_flags = json.dumps(flags)
 
     def get_weakness_flags(self):
         return json.loads(self.weakness_flags) if self.weakness_flags else []
+
 
 class VocabularyMastery(Base):
     __tablename__ = "vocabulary_mastery"
@@ -35,12 +38,13 @@ class VocabularyMastery(Base):
     times_correct = Column(Integer, default=0)
     times_incorrect = Column(Integer, default=0)
 
+
 class Lessons(Base):
     __tablename__ = "lessons"
     lesson_id = Column(Integer, primary_key=True, autoincrement=True)
     grammar_focus = Column(String)
     content = Column(Text)
-    new_vocabulary = Column(Text) # Stored as JSON string
+    new_vocabulary = Column(Text)  # Stored as JSON string
 
     def set_new_vocabulary(self, vocab_list):
         self.new_vocabulary = json.dumps(vocab_list)
@@ -48,12 +52,13 @@ class Lessons(Base):
     def get_new_vocabulary(self):
         return json.loads(self.new_vocabulary) if self.new_vocabulary else []
 
+
 class Exercises(Base):
     __tablename__ = "exercises"
     exercise_id = Column(Integer, primary_key=True, autoincrement=True)
     type = Column(String)
     sub_type = Column(String)
-    question_data = Column(Text) # Stored as JSON string
+    question_data = Column(Text)  # Stored as JSON string
     user_response = Column(Text)
     grade = Column(Integer)
     feedback = Column(Text)
