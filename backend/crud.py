@@ -1,166 +1,140 @@
 # backend/crud.py
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from . import models, schemas
-import json
 from datetime import datetime
 
 
-# UserStatus CRUD
+# =================
+# User Status
+# =================
 def get_user_status(db: Session, user_id: int = 1):
     return (
         db.query(models.UserStatus).filter(models.UserStatus.user_id == user_id).first()
     )
 
 
-def create_user_status(db: Session, user_status: schemas.UserStatusSummary):
-    db_user_status = models.UserStatus(
-        current_level=user_status.level,
-        known_vocab_count=user_status.known_vocab,
-        grammar_mastered_count=0,  # Initial value
-        most_recent_weak_area=user_status.weak_focus,
-    )
-    db.add(db_user_status)
-    db.commit()
-    db.refresh(db_user_status)
-    return db_user_status
-
-
-def update_user_status(db: Session, user_status_data: dict, user_id: int = 1):
-    db_user_status = get_user_status(db, user_id)
-    if db_user_status:
-        for key, value in user_status_data.items():
-            setattr(db_user_status, key, value)
+def get_dashboard_status(db: Session, user_id: int = 1) -> schemas.UserStatusSummary:
+    status = get_user_status(db, user_id)
+    if not status:
+        # Create a default status if it doesn't exist
+        status = models.UserStatus(
+            user_id=user_id,
+            current_level="Beginner",
+            known_vocab_count=0,
+            grammar_mastered_count=0,
+            most_recent_weak_area="N/A",
+        )
+        db.add(status)
         db.commit()
-        db.refresh(db_user_status)
-    return db_user_status
+        db.refresh(status)
+
+    return schemas.UserStatusSummary(
+        level=status.current_level,
+        known_vocab=status.known_vocab_count,
+        weak_focus=status.most_recent_weak_area,
+    )
 
 
-# GrammarMastery CRUD
-def get_grammar_mastery(db: Session, pattern: str):
+# =================
+# Agent-Specific Queries
+# =================
+def get_weakest_grammar_pattern(db: Session):
+    """
+    Finds the grammar pattern with the lowest mastery_score.
+    Ties are broken by the oldest last_reviewed date.
+    """
     return (
         db.query(models.GrammarMastery)
-        .filter(models.GrammarMastery.pattern == pattern)
+        .order_by(
+            models.GrammarMastery.mastery_score.asc(),
+            models.GrammarMastery.last_reviewed.asc(),
+        )
         .first()
     )
 
 
-def get_all_grammar_mastery(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.GrammarMastery).offset(skip).limit(limit).all()
-
-
-def create_grammar_mastery(db: Session, pattern: str, mastery_score: float = 0.0):
-    db_grammar = models.GrammarMastery(
-        pattern=pattern,
-        mastery_score=mastery_score,
-        last_reviewed=datetime.utcnow(),
-        weakness_flags=json.dumps([]),
-    )
-    db.add(db_grammar)
-    db.commit()
-    db.refresh(db_grammar)
-    return db_grammar
-
-
-def update_grammar_mastery(
-    db: Session, pattern: str, mastery_score: float = None, weakness_flags: list = None
-):
-    db_grammar = get_grammar_mastery(db, pattern)
-    if db_grammar:
-        if mastery_score is not None:
-            db_grammar.mastery_score = mastery_score
-        if weakness_flags is not None:
-            db_grammar.weakness_flags = json.dumps(weakness_flags)
-        db_grammar.last_reviewed = datetime.utcnow()
-        db.commit()
-        db.refresh(db_grammar)
-    return db_grammar
-
-
-# VocabularyMastery CRUD
-def get_vocabulary_mastery(db: Session, word_korean: str):
+def get_vocab_for_drilling(db: Session, count: int = 5):
+    """
+    Selects vocabulary items with a mastery score suitable for drilling (0.4 - 0.7).
+    """
     return (
         db.query(models.VocabularyMastery)
-        .filter(models.VocabularyMastery.word_korean == word_korean)
-        .first()
+        .filter(models.VocabularyMastery.mastery_score.between(0.4, 0.7))
+        .order_by(func.random())
+        .limit(count)
+        .all()
     )
 
 
-def get_all_vocabulary_mastery(db: Session, skip: int = 0, limit: int = 100):
-    return db.query(models.VocabularyMastery).offset(skip).limit(limit).all()
-
-
-def create_vocabulary_mastery(
-    db: Session, word_korean: str, mastery_score: float = 0.0
-):
-    db_vocab = models.VocabularyMastery(
-        word_korean=word_korean,
-        mastery_score=mastery_score,
-        last_reviewed=datetime.utcnow(),
-        times_correct=0,
-        times_incorrect=0,
-    )
-    db.add(db_vocab)
-    db.commit()
-    db.refresh(db_vocab)
-    return db_vocab
-
-
-def update_vocabulary_mastery(
-    db: Session,
-    word_korean: str,
-    mastery_score: float = None,
-    times_correct: int = None,
-    times_incorrect: int = None,
-):
-    db_vocab = get_vocabulary_mastery(db, word_korean)
-    if db_vocab:
-        if mastery_score is not None:
-            db_vocab.mastery_score = mastery_score
-        if times_correct is not None:
-            db_vocab.times_correct = times_correct
-        if times_incorrect is not None:
-            db_vocab.times_incorrect = times_incorrect
-        db_vocab.last_reviewed = datetime.utcnow()
-        db.commit()
-        db.refresh(db_vocab)
-    return db_vocab
-
-
-# Lessons CRUD
-def create_lesson(db: Session, grammar_focus: str, content: str, new_vocabulary: list):
-    db_lesson = models.Lessons(
-        grammar_focus=grammar_focus,
-        content=content,
-        new_vocabulary=json.dumps(new_vocabulary),
-    )
-    db.add(db_lesson)
-    db.commit()
-    db.refresh(db_lesson)
-    return db_lesson
-
-
-def get_lesson(db: Session, lesson_id: int):
+def get_new_vocabulary(db: Session, count: int = 5):
+    """
+    Selects new vocabulary items (mastery score < 0.2).
+    """
     return (
-        db.query(models.Lessons).filter(models.Lessons.lesson_id == lesson_id).first()
+        db.query(models.VocabularyMastery)
+        .filter(models.VocabularyMastery.mastery_score < 0.2)
+        .order_by(func.random())
+        .limit(count)
+        .all()
     )
 
 
-# Exercises CRUD
-def create_exercise(db: Session, type: str, sub_type: str, question_data: dict):
-    db_exercise = models.Exercises(
-        type=type,
-        sub_type=sub_type,
-        question_data=json.dumps(question_data),
-        user_response="",
-        grade=0,
-        feedback="",
-    )
-    db.add(db_exercise)
+# =================
+# Mastery Updates
+# =================
+def update_mastery_after_evaluation(db: Session, evaluation: schemas.EvaluationResult):
+    """
+    Processes the mastery updates from an evaluation result.
+    """
+    for update in evaluation.mastery_updates:
+        # This is a simplified example. In a real app, you'd distinguish
+        # between grammar and vocab, possibly with a concept type field.
+        # For now, we'll try to find a match in either table.
+
+        grammar_item = (
+            db.query(models.GrammarMastery)
+            .filter(models.GrammarMastery.pattern == update.concept)
+            .first()
+        )
+        if grammar_item:
+            grammar_item.mastery_score = update.new_score
+            grammar_item.last_reviewed = datetime.utcnow()
+
+            if update.flags_added:
+                # Add new flags if they don't exist
+                existing_flags = set(grammar_item.weakness_flags or [])
+                for flag in update.flags_added:
+                    existing_flags.add(flag)
+                grammar_item.weakness_flags = list(existing_flags)
+
+            # If score decreased, increment times_incorrect
+            if update.new_score < grammar_item.mastery_score:
+                grammar_item.times_incorrect += 1
+
+            continue  # Move to next update
+
+        vocab_item = (
+            db.query(models.VocabularyMastery)
+            .filter(models.VocabularyMastery.word_korean == update.concept)
+            .first()
+        )
+        if vocab_item:
+            # If score increased, increment times_correct
+            if update.new_score > vocab_item.mastery_score:
+                vocab_item.times_correct += 1
+            else:
+                vocab_item.times_incorrect += 1
+
+            vocab_item.mastery_score = update.new_score
+            vocab_item.last_reviewed = datetime.utcnow()
+
     db.commit()
-    db.refresh(db_exercise)
-    return db_exercise
 
 
+# =================
+# Generic Getters
+# =================
 def get_exercise(db: Session, exercise_id: int):
     return (
         db.query(models.Exercises)
@@ -169,14 +143,80 @@ def get_exercise(db: Session, exercise_id: int):
     )
 
 
-def update_exercise_submission(
-    db: Session, exercise_id: int, user_response: str, grade: int, feedback: str
-):
-    db_exercise = get_exercise(db, exercise_id)
+def get_lesson(db: Session, lesson_id: int):
+    return (
+        db.query(models.Lessons).filter(models.Lessons.lesson_id == lesson_id).first()
+    )
+
+
+def get_all_grammar_mastery(db: Session, skip: int = 0, limit: int = 100):
+    return (
+        db.query(models.GrammarMastery)
+        .order_by(models.GrammarMastery.mastery_score.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def get_all_vocabulary_mastery(db: Session, skip: int = 0, limit: int = 100):
+    return (
+        db.query(models.VocabularyMastery)
+        .order_by(models.VocabularyMastery.mastery_score.asc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def get_review_history(db: Session, skip: int = 0, limit: int = 10):
+    return (
+        db.query(models.Exercises)
+        .filter(models.Exercises.grade is not None)
+        .order_by(models.Exercises.exercise_id.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+# =================
+# Generic Creators / Updaters
+# =================
+def create_lesson(db: Session, lesson_data: schemas.LessonContent) -> models.Lessons:
+    db_lesson = models.Lessons(
+        grammar_focus=lesson_data.grammar_pattern,
+        content=lesson_data.explanation_text,  # Assuming explanation_text is main content
+        new_vocabulary=[v.model_dump() for v in lesson_data.new_vocabulary],
+    )
+    db.add(db_lesson)
+    db.commit()
+    db.refresh(db_lesson)
+    return db_lesson
+
+
+def create_exercise(
+    db: Session, exercise_data: schemas.ExerciseDetails
+) -> models.Exercises:
+    db_exercise = models.Exercises(
+        type=exercise_data.type,
+        sub_type=exercise_data.sub_type,
+        question_data=exercise_data.model_dump(),  # Store the whole details object
+    )
+    db.add(db_exercise)
+    db.commit()
+    db.refresh(db_exercise)
+    return db_exercise
+
+
+def update_exercise_with_submission(
+    db: Session, submission: schemas.Submission, evaluation: schemas.EvaluationResult
+) -> models.Exercises:
+    db_exercise = get_exercise(db, submission.exercise_id)
     if db_exercise:
-        db_exercise.user_response = user_response
-        db_exercise.grade = grade
-        db_exercise.feedback = feedback
+        db_exercise.user_response = submission.user_response
+        db_exercise.grade = evaluation.grade
+        db_exercise.feedback = evaluation.feedback_text
         db.commit()
         db.refresh(db_exercise)
     return db_exercise

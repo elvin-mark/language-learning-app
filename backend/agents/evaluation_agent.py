@@ -1,148 +1,93 @@
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_google_genai import ChatGoogleGenerativeAI
+# backend/agents/evaluation_agent.py
 from sqlalchemy.orm import Session
-from .. import crud, schemas
-import json
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Initialize the generative model
-llm = ChatGoogleGenerativeAI(model="gemini-pro", temperature=0.7)
+from .. import crud, schemas
+
+# Initialize LLM
+try:
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2)
+except Exception as e:
+    print(f"Error initializing LLM: {e}")
+    llm = None
 
 
 class EvaluationAgent:
     def __init__(self, db: Session):
         self.db = db
-
-    def _grade_submission_and_feedback(
-        self, exercise_details: dict, user_response: str
-    ):
-        """
-        Uses LLM to grade the submission and provide feedback.
-        """
-        prompt_template = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a Korean language teacher. Grade the user's submission, provide constructive feedback, and identify any grammar or vocabulary errors. Output a JSON object with 'grade' (0-100) and 'feedback_text' (string).",
-                ),
-                (
-                    "user",
-                    f"Original Exercise:\n{exercise_details['question_text']}\nExpected Format: {exercise_details['expected_format']}\nUser Submission:\n{user_response}\nTarget Grammar: {exercise_details.get('target_grammar', 'None')}\nTarget Vocabulary: {', '.join(exercise_details.get('target_vocab', []))}\nPlease provide a grade (0-100) and detailed feedback, focusing on correctness, naturalness, and whether the target grammar/vocab were used correctly. Identify specific errors.",
-                ),
-            ]
-        )
-        parser = JsonOutputParser(
-            pydantic_object=schemas.EvaluationResult
-        )  # Will only parse the grade and feedback part
-        chain = prompt_template | llm | parser
-        response = chain.invoke({})
-        return response.grade, response.feedback_text
-
-    def _analyze_errors_and_update_mastery(
-        self, exercise_details: dict, user_response: str, grade: int
-    ):
-        """
-        Analyzes the submission for errors, updates weakness flags, and mastery scores.
-        This is a simplified implementation. A more robust one would involve more sophisticated
-        NLP for error detection.
-        """
-        mastery_updates = []
-        weakness_flags_added = []
-
-        # Simulate error analysis for grammar
-        target_grammar = exercise_details.get("target_grammar")
-        if target_grammar:
-            db_grammar = crud.get_grammar_mastery(self.db, target_grammar)
-            if not db_grammar:
-                db_grammar = crud.create_grammar_mastery(self.db, target_grammar)
-
-            original_flags = (
-                json.loads(db_grammar.weakness_flags)
-                if db_grammar.weakness_flags
-                else []
+        if not llm:
+            raise ImportError(
+                "Google Generative AI model could not be initialized. Please check your API key."
             )
-            new_score = db_grammar.mastery_score
-
-            if grade < 70:  # Assume an error if grade is low
-                # Simulate adding a weakness flag
-                if "incorrect usage" not in original_flags:
-                    original_flags.append("incorrect usage")
-                    weakness_flags_added.append("incorrect usage")
-                new_score = max(0.0, db_grammar.mastery_score - 0.1)  # Decrease score
-            else:
-                new_score = min(1.0, db_grammar.mastery_score + 0.05)  # Increase score
-
-            crud.update_grammar_mastery(
-                self.db, target_grammar, new_score, original_flags
-            )
-            mastery_updates.append(
-                schemas.MasteryUpdate(
-                    concept=target_grammar,
-                    new_score=new_score,
-                    flags_added=weakness_flags_added if weakness_flags_added else None,
-                )
-            )
-
-        # Simulate mastery update for vocabulary (very basic)
-        target_vocab = exercise_details.get("target_vocab", [])
-        for word in target_vocab:
-            db_vocab = crud.get_vocabulary_mastery(self.db, word)
-            if not db_vocab:
-                db_vocab = crud.create_vocabulary_mastery(self.db, word)
-
-            new_vocab_score = db_vocab.mastery_score
-            times_correct = db_vocab.times_correct
-            times_incorrect = db_vocab.times_incorrect
-
-            if (
-                user_response.lower().count(word.lower()) > 0 and grade > 70
-            ):  # If word used and good grade
-                new_vocab_score = min(1.0, db_vocab.mastery_score + 0.02)
-                times_correct += 1
-            else:
-                new_vocab_score = max(0.0, db_vocab.mastery_score - 0.05)
-                times_incorrect += 1
-
-            crud.update_vocabulary_mastery(
-                self.db, word, new_vocab_score, times_correct, times_incorrect
-            )
-            mastery_updates.append(
-                schemas.MasteryUpdate(concept=word, new_score=new_vocab_score)
-            )
-
-        return mastery_updates
 
     def evaluate_submission(
         self, submission: schemas.Submission
-    ) -> schemas.EvaluationResult:
+    ) -> schemas.EvaluationResult | None:
+        """
+        Orchestrates the evaluation of a user's submission using the model's structured output feature.
+        """
+        # 1. Fetch the original exercise
         exercise = crud.get_exercise(self.db, submission.exercise_id)
         if not exercise:
-            # Handle error: exercise not found
-            return schemas.EvaluationResult(
-                grade=0, feedback_text="Exercise not found.", mastery_updates=[]
+            print(f"Error: Exercise with ID {submission.exercise_id} not found.")
+            return None
+
+        exercise_details = schemas.ExerciseDetails.model_validate(
+            exercise.question_data
+        )
+
+        # This is a simplification. In a real app, the target concept
+        # would be explicitly stored with the exercise.
+        target_concept = crud.get_weakest_grammar_pattern(self.db)
+        if not target_concept:
+            return None
+
+        # 2. Use LLM's structured output for a reliable JSON response
+        structured_llm = llm.with_structured_output(schemas.EvaluationResult)
+
+        prompt = ChatPromptTemplate.from_template(
+            """You are an expert Korean language teacher and data analyst. Your task is to evaluate a user's exercise submission and generate a detailed, structured JSON response.
+
+**Context:**
+- **Exercise Question**: "{question_text}"
+- **Target Concept**: "{target_concept}"
+- **User's Current Mastery Score**: {current_mastery_score:.2f}
+- **User's Known Weakness Flags**: {current_weakness_flags}
+
+**User's Submission:**
+- `user_response`: "{user_response}"
+
+**Your Tasks:**
+1.  **`grade`**: Assign an integer grade (0-100).
+2.  **`feedback_text`**: Write clear, constructive feedback.
+3.  **`mastery_updates`**: Generate a list containing ONE update object for the `{target_concept}`.
+    -   `concept`: Must be the `target_concept` string: "{target_concept}".
+    -   `new_score`: Calculate a new mastery score (float between 0.0 and 1.0). Increase for correct usage, decrease for incorrect usage. The change should be proportional to the performance.
+    -   `flags_added`: Analyze the user's errors. If you find a specific, new error type not listed in `current_weakness_flags`, add it to this list. Otherwise, return an empty list `[]`.
+
+Produce a valid JSON object based on these instructions.
+"""
+        )
+
+        chain = prompt | structured_llm
+
+        try:
+            evaluation_result = chain.invoke(
+                {
+                    "question_text": exercise_details.question_text,
+                    "target_concept": target_concept.pattern,
+                    "current_mastery_score": target_concept.mastery_score,
+                    "current_weakness_flags": target_concept.weakness_flags or "None",
+                    "user_response": submission.user_response,
+                }
             )
+        except Exception as e:
+            print(f"Error invoking structured LLM chain for evaluation: {e}")
+            return None
 
-        exercise_details = exercise.get_question_data()
+        # 3. Persist results to the database
+        crud.update_exercise_with_submission(self.db, submission, evaluation_result)
+        crud.update_mastery_after_evaluation(self.db, evaluation_result)
 
-        # Step 1: Grade submission and get feedback
-        grade, feedback_text = self._grade_submission_and_feedback(
-            exercise_details, submission.user_response
-        )
-
-        # Step 2: Analyze errors and update mastery
-        mastery_updates = self._analyze_errors_and_update_mastery(
-            exercise_details, submission.user_response, grade
-        )
-
-        # Update the exercise record with user's submission, grade, and feedback
-        crud.update_exercise_submission(
-            self.db,
-            submission.exercise_id,
-            submission.user_response,
-            grade,
-            feedback_text,
-        )
-
-        return schemas.EvaluationResult(
-            grade=grade, feedback_text=feedback_text, mastery_updates=mastery_updates
-        )
+        return evaluation_result

@@ -1,121 +1,81 @@
 # backend/agents/lesson_agent.py
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import JsonOutputParser
-from langchain_google_genai import ChatGoogleGenerativeAI
 from sqlalchemy.orm import Session
-from .. import crud, schemas
-from datetime import datetime, timedelta
-import json
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Initialize the generative model
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
+from .. import crud, schemas
+
+# Initialize LLM
+try:
+    llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.7)
+except Exception as e:
+    print(f"Error initializing LLM: {e}")
+    llm = None
 
 
 class LessonAgent:
     def __init__(self, db: Session):
         self.db = db
+        if not llm:
+            raise ImportError("Google Generative AI model could not be initialized.")
 
-    def _get_weakest_grammar_pattern(self):
+    def generate_lesson(self) -> schemas.LessonContent | None:
         """
-        Queries the database to find the grammar pattern with the lowest mastery score
-        or the oldest last_reviewed date.
+        Generates the next personalized lesson using the model's structured output feature.
         """
-        # Prioritize lowest mastery score
-        weakest_grammar = (
-            self.db.query(crud.models.GrammarMastery)
-            .order_by(
-                crud.models.GrammarMastery.mastery_score.asc(),
-                crud.models.GrammarMastery.last_reviewed.asc(),
+        # 1. Get weakest grammar and new vocab from the database
+        weakest_grammar = crud.get_weakest_grammar_pattern(self.db)
+        if not weakest_grammar:
+            return None
+
+        new_vocabulary = crud.get_new_vocabulary(self.db, count=5)
+        new_vocab_schema = [
+            schemas.NewVocabularyItem(
+                korean=v.word_korean, english="<translation_needed>"
             )
-            .first()
-        )
-
-        if weakest_grammar:
-            return weakest_grammar
-
-        # If no grammar patterns exist, return a default for initial lesson
-        return crud.models.GrammarMastery(
-            pattern="Verb + (으)ㅂ니다/습니다 (Formal Ending)",
-            mastery_score=0.0,
-            last_reviewed=datetime.utcnow() - timedelta(days=30),  # Make it seem old
-            weakness_flags=json.dumps([]),
-        )
-
-    def _select_new_vocabulary(self, grammar_pattern: str):
-        """
-        Selects 5-10 new vocabulary items relevant to the grammar pattern.
-        For now, this is a placeholder. In a real scenario, this would involve
-        a more sophisticated selection based on context, level, and existing vocabulary.
-        """
-        # Placeholder for now
-        if "Verb + (으)ㅂ니다/습니다" in grammar_pattern:
-            return [
-                schemas.NewVocabularyItem(korean="하다", english="to do"),
-                schemas.NewVocabularyItem(korean="먹다", english="to eat"),
-                schemas.NewVocabularyItem(korean="가다", english="to go"),
-                schemas.NewVocabularyItem(korean="오다", english="to come"),
-                schemas.NewVocabularyItem(korean="공부하다", english="to study"),
-            ]
-        return [
-            schemas.NewVocabularyItem(korean="새로운", english="new"),
-            schemas.NewVocabularyItem(korean="단어", english="word"),
+            for v in new_vocabulary
         ]
 
-    def generate_lesson(self) -> schemas.LessonContent:
-        weakest_grammar = self._get_weakest_grammar_pattern()
-        new_vocabulary = self._select_new_vocabulary(weakest_grammar.pattern)
+        # 2. Use LLM's structured output feature for a reliable JSON response
+        structured_llm = llm.with_structured_output(schemas.LessonContent)
 
-        # prompt_template = ChatPromptTemplate.from_messages([
-        #     ("system", "You are a helpful Korean language tutor. Generate a personalized lesson."),
-        #     ("user", f"Generate a lesson on the grammar pattern: '{weakest_grammar.pattern}'. "
-        #              f"The user's current mastery score for this is {weakest_grammar.mastery_score:.2f}. "
-        #              f"Weakness flags: {json.loads(weakest_grammar.weakness_flags) if weakest_grammar.weakness_flags else 'None'}. "
-        #              f"Include an explanation, 3-4 example sentences using the pattern, and incorporate the following new vocabulary: {', '.join([v.korean for v in new_vocabulary])}. "
-        #              "The output should be a JSON object with 'grammar_pattern', 'explanation_text', 'example_sentences' (list of strings), and 'new_vocabulary' (list of {'korean': '...', 'english': '...'} objects).")
-        # ])
+        prompt = ChatPromptTemplate.from_template(
+            """You are an expert and friendly Korean language teacher. Your task is to create a concise, personalized lesson and return it as a JSON object.
 
-        prompt_template = ChatPromptTemplate.from_messages(
-            [
-                (
-                    "system",
-                    "You are a helpful Korean language tutor. Generate a personalized lesson.",
-                ),
-                (
-                    "user",
-                    "Generate a lesson on the grammar pattern: '{grammar_pattern}'. "
-                    "The user's current mastery score for this is {mastery_score:.2f}. "
-                    "Weakness flags: {weakness_flags}. "
-                    "Include an explanation, 3-4 example sentences using the pattern, and incorporate "
-                    "the following new vocabulary: {new_vocabulary}. "
-                    "The output should be a JSON object with "
-                    "'grammar_pattern', 'explanation_text', 'example_sentences' (list of strings), "
-                    "and 'new_vocabulary' (list of {{'korean': '...', 'english': '...'}} objects).",
-                ),
-            ]
+**User's Current Status:**
+- **Grammar Pattern to Learn:** `{grammar_pattern}`
+- **Current Mastery Score:** {mastery_score:.2f} (A score from 0.0 to 1.0)
+- **Known Issues/Weakness Flags:** `{weakness_flags}` (These are specific errors the user has made before. Address them in your explanation.)
+
+**Lesson Requirements:**
+1.  **`explanation_text`**: Write a clear and simple explanation of the grammar pattern. If there are weakness flags, provide examples that specifically correct those mistakes.
+2.  **`example_sentences`**: Create 3-4 diverse and practical example sentences that use the grammar pattern correctly.
+3.  **Integrate Vocabulary**: Naturally include some of these **new vocabulary words** (`{new_vocab_list}`) within your example sentences.
+
+Fill the `grammar_pattern` and `new_vocabulary` fields in the output with the exact data provided. Set `lesson_id` to 0 as a placeholder.
+"""
         )
 
-        parser = JsonOutputParser(pydantic_object=schemas.LessonContent)
+        chain = prompt | structured_llm
 
-        chain = prompt_template | llm | parser
+        try:
+            lesson_data_from_llm = chain.invoke(
+                {
+                    "grammar_pattern": weakest_grammar.pattern,
+                    "mastery_score": weakest_grammar.mastery_score,
+                    "weakness_flags": weakest_grammar.weakness_flags or "None",
+                    "new_vocab_list": [v.korean for v in new_vocab_schema],
+                    "new_vocabulary": [v.model_dump() for v in new_vocab_schema],
+                }
+            )
+        except Exception as e:
+            print(f"Error invoking structured LLM chain for lesson generation: {e}")
+            return None
 
-        # Invoke the chain
-        response = chain.invoke(
-            {
-                "grammar_pattern": weakest_grammar.pattern,
-                "mastery_score": weakest_grammar.mastery_score,
-                "weakness_flags": json.loads(weakest_grammar.weakness_flags)
-                if weakest_grammar.weakness_flags
-                else [],
-                "new_vocabulary": new_vocabulary,
-            }
-        )
+        # 3. Save the complete lesson to the database
+        db_lesson = crud.create_lesson(self.db, lesson_data=lesson_data_from_llm)
 
-        # Save the generated lesson to the database
-        db_lesson = crud.create_lesson(
-            self.db,
-            grammar_focus=response["grammar_pattern"],
-            content=response["explanation_text"],
-            new_vocabulary=[item for item in response["new_vocabulary"]],
-        )
-        response["lesson_id"] = db_lesson.lesson_id
-        return response
+        # 4. Return the final, validated schema with the database ID
+        lesson_data_from_llm.lesson_id = db_lesson.lesson_id
+
+        return lesson_data_from_llm
