@@ -1,95 +1,229 @@
 <!-- frontend/src/views/PracticeView.vue -->
 <template>
-  <div class="practice">
-    <h1>Practice</h1>
-    <p>Time to practice what you've learned!</p>
-    <button @click="generateExercise">Generate New Exercise</button>
-    <div v-if="exerciseDetails">
-      <h2>Exercise: {{ exerciseDetails.sub_type }}</h2>
-      <p>{{ exerciseDetails.question_text }}</p>
-      <textarea v-model="userResponse" placeholder="Type your answer here..." rows="5"></textarea>
-      <button @click="submitExercise">Submit Answer</button>
+  <div class="practice-view">
+    <h1>Practice Session</h1>
+    <p>Select an exercise type to test your knowledge.</p>
+
+    <div class="controls">
+      <div class="select-group">
+        <label for="exercise-type">Exercise Type:</label>
+        <select id="exercise-type" v-model="selectedType">
+          <option v-for="type in exerciseTypes" :key="type.value" :value="type.value">
+            {{ type.label }}
+          </option>
+        </select>
+      </div>
+      <div class="select-group">
+        <label for="exercise-subtype">Sub-Type:</label>
+        <select id="exercise-subtype" v-model="selectedSubType" :disabled="!selectedType">
+          <option v-for="subtype in availableSubTypes" :key="subtype.value" :value="subtype.value">
+            {{ subtype.label }}
+          </option>
+        </select>
+      </div>
+      <button @click="handleGenerateExercise" :disabled="!selectedSubType">Generate Exercise</button>
     </div>
-    <div v-if="evaluationResult">
-      <h3>Evaluation Result:</h3>
-      <p>Grade: {{ evaluationResult.grade }}</p>
-      <p>Feedback: {{ evaluationResult.feedback_text }}</p>
+
+    <div v-if="isLoading" class="loading">Loading...</div>
+
+    <div v-if="currentExercise" class="exercise-area">
+      <h2>{{ currentExercise.type }}: {{ currentExercise.sub_type }}</h2>
+      <p class="question-text">{{ currentExercise.question_text }}</p>
+      <textarea v-model="userResponse" :placeholder="`Enter your answer here... (expected format: ${currentExercise.expected_format})`" rows="6"></textarea>
+      <button @click="handleSubmitExercise" :disabled="!userResponse">Submit Answer</button>
+    </div>
+
+    <div v-if="evaluationResult" class="result-area">
+      <h3>Evaluation Result</h3>
+      <p><strong>Grade:</strong> {{ evaluationResult.grade }} / 100</p>
+      <p><strong>Feedback:</strong> {{ evaluationResult.feedback_text }}</p>
       <h4>Mastery Updates:</h4>
       <ul>
-        <li v-for="(update, index) in evaluationResult.mastery_updates" :key="index">
-          {{ update.concept }}: New Score {{ update.new_score }}
-          <span v-if="update.flags_added && update.flags_added.length"> (Flags added: {{ update.flags_added.join(', ') }})</span>
+        <li v-for="update in evaluationResult.mastery_updates" :key="update.concept">
+          <strong>{{ update.concept }}</strong>: New Score {{ update.new_score.toFixed(2) }}
+          <span v-if="update.flags_added?.length">
+            (New Weakness Flags: {{ update.flags_added.join(', ') }})
+          </span>
         </li>
       </ul>
     </div>
-    <div v-else-if="!exerciseDetails">
-      <p>Click "Generate New Exercise" to start.</p>
-    </div>
+
   </div>
 </template>
 
-<script setup>
-import { ref } from 'vue';
-import axios from 'axios';
+<script setup lang="ts">
+import { ref, computed, watch } from 'vue';
+import { apiService } from '@/services/api';
+import type { ExerciseDetails, EvaluationResult } from '@/services/api-schemas';
 
-const exerciseDetails = ref(null);
+// State for exercise selection
+const exerciseTypes = ref([
+  { label: 'Writing', value: 'Writing' },
+  { label: 'Flashcards', value: 'Flashcards' },
+  { label: 'Reading', value: 'Reading' },
+]);
+
+const subTypes = {
+  Writing: [
+    { label: 'Targeted Essay', value: 'Targeted Essay' },
+    { label: 'Sentence Transformation', value: 'Sentence Transformation' },
+    { label: 'Dialogue Completion', value: 'Dialogue Completion' },
+  ],
+  Flashcards: [
+    { label: 'Translation Recall', value: 'Translation Recall' },
+    { label: 'Meaning Recall', value: 'Meaning Recall' },
+    { label: 'Sentence Gap-Fill', value: 'Sentence Gap-Fill' },
+  ],
+  Reading: [
+    { label: 'Short Story Analysis', value: 'Short Story/Article Analysis' },
+    { label: 'Inference & Consequence', value: 'Inference & Consequence' },
+  ],
+};
+
+const selectedType = ref<keyof typeof subTypes>('Writing');
+const selectedSubType = ref('Targeted Essay');
+
+// Computed property for dynamic sub-type dropdown
+const availableSubTypes = computed(() => {
+  return selectedType.value ? subTypes[selectedType.value] : [];
+});
+
+// Watch for changes in type to reset sub-type
+watch(selectedType, (newType) => {
+  if (newType) {
+    selectedSubType.value = subTypes[newType][0].value;
+  }
+});
+
+// State for exercise flow
+const currentExercise = ref<ExerciseDetails | null>(null);
 const userResponse = ref('');
-const evaluationResult = ref(null);
+const evaluationResult = ref<EvaluationResult | null>(null);
+const isLoading = ref(false);
+const error = ref<string | null>(null);
 
-const generateExercise = async () => {
+const handleGenerateExercise = async () => {
+  isLoading.value = true;
+  error.value = null;
+  currentExercise.value = null;
+  evaluationResult.value = null;
+  userResponse.value = '';
+
   try {
-    const response = await axios.post('http://localhost:8000/exercises/generate', {
-      type: 'Writing', // Example: can be dynamic later
-      sub_type: 'Targeted Essay' // Example: can be dynamic later
-    });
-    exerciseDetails.value = response.data;
-    userResponse.value = ''; // Clear previous response
-    evaluationResult.value = null; // Clear previous evaluation
-  } catch (error) {
-    console.error('Error generating exercise:', error);
-    exerciseDetails.value = { question_text: 'Error generating exercise.', type: 'Error', sub_type: 'Error', expected_format: '' };
+    const request = {
+      type: selectedType.value,
+      sub_type: selectedSubType.value,
+    };
+    currentExercise.value = await apiService.generateExercise(request);
+  } catch (err) {
+    error.value = 'Failed to generate exercise.';
+    console.error(err);
+  } finally {
+    isLoading.value = false;
   }
 };
 
-const submitExercise = async () => {
-  if (!exerciseDetails.value || !userResponse.value) {
-    alert('Please generate an exercise and provide a response.');
-    return;
-  }
+const handleSubmitExercise = async () => {
+  if (!currentExercise.value || !userResponse.value) return;
+
+  isLoading.value = true;
+  error.value = null;
+  evaluationResult.value = null;
+
   try {
-    const response = await axios.post('http://localhost:8000/exercises/submit', {
-      exercise_id: exerciseDetails.value.exercise_id,
-      user_response: userResponse.value
-    });
-    evaluationResult.value = response.data;
-  } catch (error) {
-    console.error('Error submitting exercise:', error);
-    evaluationResult.value = { grade: 0, feedback_text: 'Error submitting exercise.', mastery_updates: [] };
+    const submission = {
+      exercise_id: currentExercise.value.exercise_id,
+      user_response: userResponse.value,
+    };
+    evaluationResult.value = await apiService.submitExercise(submission);
+  } catch (err) {
+    error.value = 'Failed to submit exercise.';
+    console.error(err);
+  } finally {
+    isLoading.value = false;
   }
 };
 </script>
 
 <style scoped>
-.practice {
+.practice-view {
+  max-width: 800px;
+  margin: 0 auto;
   padding: 20px;
 }
-textarea {
-  width: 80%;
-  padding: 10px;
-  margin-top: 10px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
+
+.controls {
+  display: flex;
+  gap: 20px;
+  align-items: flex-end;
+  margin-bottom: 20px;
+  padding: 15px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
 }
+
+.select-group {
+  display: flex;
+  flex-direction: column;
+}
+
+label {
+  margin-bottom: 5px;
+  font-weight: bold;
+  font-size: 0.9em;
+}
+
+select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
 button {
-  margin: 10px 0;
   padding: 10px 15px;
-  background-color: #4CAF50;
-  color: white;
   border: none;
   border-radius: 4px;
+  background-color: #3498db;
+  color: white;
   cursor: pointer;
+  transition: background-color 0.3s;
 }
-button:hover {
-  background-color: #45a049;
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+button:not(:disabled):hover {
+  background-color: #2980b9;
+}
+
+.loading {
+  text-align: center;
+  padding: 20px;
+}
+
+.exercise-area, .result-area {
+  margin-top: 20px;
+  padding: 20px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.question-text {
+  font-size: 1.2em;
+  margin-bottom: 15px;
+}
+
+textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box; /* Important */
+}
+
+.result-area {
+  background-color: #f0f9ff;
 }
 </style>
