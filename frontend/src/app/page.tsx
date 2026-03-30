@@ -71,16 +71,16 @@ export default function Dashboard() {
         />
       </div>
 
-      <div style={{ marginBottom: '3rem' }}>
+      <div style={{ marginBottom: '3rem', overflowX: 'auto' }}>
         <UsageChart data={usageData} />
       </div>
 
-      <section className="glass" style={{ padding: '2rem' }}>
+      <section className="glass" style={{ padding: '1.5rem' }}>
         <h2>Continue Learning</h2>
         <div style={{ 
           display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
+          flexDirection: 'column',
+          gap: '1.5rem',
           backgroundColor: 'rgba(255,255,255,0.02)',
           borderRadius: '12px',
           padding: '1.5rem'
@@ -91,7 +91,7 @@ export default function Dashboard() {
               Practice what you've learned in a natural conversation.
             </p>
           </div>
-          <Link href="/chat">
+          <Link href="/chat" style={{ alignSelf: 'flex-start' }}>
             <button 
               className="glass-hover"
               style={{ 
@@ -101,7 +101,8 @@ export default function Dashboard() {
                 padding: '0.8rem 2rem', 
                 borderRadius: '30px', 
                 fontWeight: 600,
-                cursor: 'pointer'
+                cursor: 'pointer',
+                width: '100%'
               }}
             >
               Start Chat

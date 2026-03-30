@@ -72,6 +72,7 @@ a {
   gap: 2rem;
   position: fixed;
   height: 100vh;
+  z-index: 100;
 }
 
 .main-content {
@@ -79,6 +80,27 @@ a {
   flex: 1;
   padding: 2rem;
   background-attachment: fixed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none; /* Hide vertical sidebar on mobile */
+  }
+
+  .main-content {
+    margin-left: 0;
+    padding: 1.5rem;
+    padding-bottom: 6rem; /* Space for bottom nav */
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  h2 {
+    font-size: 1.3rem;
+  }
 }
 
 /* Modern Typography */

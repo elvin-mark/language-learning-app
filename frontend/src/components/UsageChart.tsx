@@ -23,21 +23,22 @@ export default function UsageChart({ data }: UsageChartProps) {
   const maxTokens = Math.max(...data.map(d => d.tokens), 100);
 
   return (
-    <div className="glass" style={{ padding: '2rem' }}>
-      <h3 style={{ marginBottom: '1.5rem', fontWeight: 700 }}>Token Consumption</h3>
+    <div className="glass" style={{ padding: '1.2rem' }}>
+      <h3 style={{ marginBottom: '1.5rem', fontWeight: 700, fontSize: '1.1rem' }}>Token Consumption</h3>
       
       <div style={{ 
         display: 'flex', 
         alignItems: 'flex-end', 
-        height: '200px', 
-        gap: '0.5rem',
+        height: '180px', 
+        gap: '0.3rem',
         paddingBottom: '1rem',
-        borderBottom: '1px solid var(--border)'
+        borderBottom: '1px solid var(--border)',
+        minWidth: '300px'
       }}>
         {data.slice(-7).map((day, idx) => {
           const height = (day.tokens / maxTokens) * 100;
           return (
-            <div key={day.date} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={day.date} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
               <motion.div 
                 initial={{ height: 0 }}
                 animate={{ height: `${height}%` }}
@@ -45,13 +46,12 @@ export default function UsageChart({ data }: UsageChartProps) {
                 style={{ 
                   width: '100%', 
                   background: 'linear-gradient(to top, var(--primary), #a855f7)', 
-                  borderRadius: '6px 6px 0 0',
-                  position: 'relative'
+                  borderRadius: '4px 4px 0 0',
+                  position: 'relative',
+                  minWidth: '20px'
                 }}
-              >
-                {/* Tooltip on hover could go here */}
-              </motion.div>
-              <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', transform: 'rotate(-45deg)', whiteSpace: 'nowrap' }}>
+              />
+              <span style={{ fontSize: '0.65rem', color: 'var(--text-dim)', transform: 'rotate(-45deg)', whiteSpace: 'nowrap', marginTop: '0.5rem' }}>
                 {day.date.split('-').slice(1).join('/')}
               </span>
             </div>

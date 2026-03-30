@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/context/AuthContext';
+import { useState, useEffect } from 'react';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
@@ -16,9 +17,61 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const pathname = usePathname();
   const { logout, user } = useAuth();
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
   
-  // Don't show sidebar on login page
+  // Don't show navigation on login page
   if (pathname.startsWith('/login')) return null;
+
+  if (isMobile) {
+    return (
+      <nav 
+        className="glass" 
+        style={{ 
+          position: 'fixed', 
+          bottom: 0, 
+          left: 0, 
+          right: 0, 
+          height: '70px', 
+          display: 'flex', 
+          justifyContent: 'space-around', 
+          alignItems: 'center', 
+          zIndex: 1000, 
+          borderRadius: '20px 20px 0 0',
+          borderTop: '1px solid var(--border)',
+          padding: '0 1rem'
+        }}
+      >
+        {NAV_ITEMS.map((item) => {
+          const Icon = item.icon;
+          const isActive = pathname === item.href;
+          return (
+            <Link 
+              key={item.href} 
+              href={item.href}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: '4px',
+                color: isActive ? 'var(--primary)' : 'var(--text-dim)',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <Icon size={22} />
+              <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{item.label}</span>
+            </Link>
+          );
+        })}
+      </nav>
+    );
+  }
 
   return (
     <aside className="sidebar glass">
