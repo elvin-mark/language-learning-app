@@ -187,7 +187,7 @@ export default function ChatPage() {
         display: 'flex', 
         flexDirection: 'column', 
         gap: '1rem',
-        order: isMobile ? 1 : 0
+        order: isMobile ? 1 : undefined
       }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <CheckCircle size={18} color="var(--primary)" /> Feedback
@@ -234,7 +234,7 @@ export default function ChatPage() {
         flexDirection: 'column', 
         overflow: 'hidden',
         height: isMobile ? '500px' : '100%',
-        order: isMobile ? 0 : 1
+        order: isMobile ? 0 : undefined
       }}>
         <div 
           ref={scrollRef} 
@@ -309,7 +309,14 @@ export default function ChatPage() {
       </section>
 
       {/* 3. Right Grammar/Vocab Pane */}
-      <aside className="glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
+      <aside className="glass" style={{ 
+        padding: '1.5rem', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        gap: '2rem', 
+        overflowY: 'auto',
+        order: isMobile ? 2 : undefined
+      }}>
         <div>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
             <Hash size={18} color="var(--accent)" /> Grammar
