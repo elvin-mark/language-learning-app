@@ -37,7 +37,7 @@ export default function UsageChart({ data }: UsageChartProps) {
         {data.slice(-7).map((day, idx) => {
           const height = (day.tokens / maxTokens) * 100;
           return (
-            <div key={day.date} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
+            <div key={day.date} style={{ flex: 1, height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
               <motion.div 
                 initial={{ height: 0 }}
                 animate={{ height: `${height}%` }}
