@@ -25,3 +25,6 @@ class StatResponse(BaseModel):
     words_learned: int
     grammar_practiced: int
     last_activity: str
+
+class ExplainRequest(BaseModel):
+    text: str

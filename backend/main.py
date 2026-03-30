@@ -12,7 +12,7 @@ import os
 from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage
 from backend.ai_engine import AIEngine, AISystemResponse
-from backend.schemas import ChatRequest, UserUpdate, UserResponse
+from backend.schemas import ChatRequest, UserUpdate, UserResponse, ExplainRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -46,6 +46,21 @@ async def get_current_user(token: str = Depends(oauth2_scheme), session: Session
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     return user
+
+@api_router.post("/explain")
+def explain(request: ExplainRequest, current_user: User = Depends(get_current_user)):
+    try:
+        return ai_engine.explain_snippet(
+            request.text, 
+            target_language=current_user.target_language,
+            llm_provider=current_user.llm_provider,
+            local_llm_url=current_user.local_llm_url
+        )
+    except Exception as e:
+        import traceback
+        print(f"ERROR in /explain: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.on_event("startup")
 def on_startup():

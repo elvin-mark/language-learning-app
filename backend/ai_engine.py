@@ -167,3 +167,47 @@ class AIEngine:
                     raise e
             
             raise e
+    def explain_snippet(self, text: str, target_language: str = "Korean", 
+                       llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+        
+        structured_llm = self.get_llm(llm_provider, local_llm_url)
+        system_prompt = f"""
+        You are a helpful and expert {target_language} language teacher. 
+        A student has selected a specific snippet from a {target_language} conversation and needs an explanation.
+        
+        Snippet: "{text}"
+        
+        Your goals:
+        1. Break down the grammar patterns used in this specific snippet.
+        2. Identify and define the key vocabulary words in this snippet.
+        3. Keep explanations clear, simple, and encouraging.
+        4. Focus ONLY on the content within the provided snippet.
+        
+        Always provide:
+        - A list of grammar patterns found in the snippet.
+        - A list of vocabulary words with meanings and pronunciation (Pinyin for Chinese, Romanization for Korean/Japanese).
+        """
+        
+        if llm_provider == "local":
+            system_prompt += "\n        CRITICAL: You must respond ONLY with a valid JSON object. Do not include any conversational filler or markdown markers like ```json."
+
+        messages = [("system", system_prompt), ("human", f"Please explain this {target_language} snippet: {text}")]
+        prompt = ChatPromptTemplate.from_messages(messages)
+        chain = prompt | structured_llm
+        
+        try:
+            full_result = chain.invoke({})
+            parsed = full_result.get('parsed')
+            
+            if parsed:
+                return {"grammar": parsed.grammar, "vocabulary": parsed.vocabulary}
+            
+            if full_result.get('parsing_error'):
+                raise full_result['parsing_error']
+            
+            raise Exception("Parsing failed but no error reported")
+            
+        except Exception as e:
+            print(f"Error explaining snippet: {str(e)}")
+            # For brevity, let's just raise for now
+            raise e

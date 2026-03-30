@@ -2,9 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
-import { Send, CheckCircle, Info, Hash, Book } from 'lucide-react';
+import { Send, CheckCircle, Info, Hash, Book, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import ExplanationOverlay from '@/components/ExplanationOverlay';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -14,11 +15,22 @@ interface Message {
   vocabulary?: any[];
 }
 
+interface SelectionState {
+  text: string;
+  x: number;
+  y: number;
+}
+
 export default function ChatPage() {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [selection, setSelection] = useState<SelectionState | null>(null);
+  const [explanationData, setExplanationData] = useState<any>(null);
+  const [isExplaining, setIsExplaining] = useState(false);
+  const [showOverlay, setShowOverlay] = useState(false);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
   
   const targetLanguage = user?.target_language || 'Korean';
@@ -32,6 +44,42 @@ export default function ChatPage() {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  const handleSelection = () => {
+    const sel = window.getSelection();
+    if (sel && sel.toString().trim().length > 0) {
+      const range = sel.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+      
+      setSelection({
+        text: sel.toString().trim(),
+        // Position the button slightly above the selection
+        x: rect.left + rect.width / 2,
+        y: rect.top - 40
+      });
+    } else {
+      setSelection(null);
+    }
+  };
+
+  const handleExplainSelection = async () => {
+    if (!selection) return;
+    
+    setIsExplaining(true);
+    setShowOverlay(true);
+    setExplanationData(null);
+    
+    try {
+      const response = await api.post('/explain', { text: selection.text });
+      setExplanationData(response.data);
+      setSelection(null); // Clear selection state/FAB
+    } catch (err) {
+      console.error('Explanation error:', err);
+      setShowOverlay(false); // Close on error
+    } finally {
+      setIsExplaining(false);
+    }
+  };
 
   const handleSend = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -80,6 +128,50 @@ export default function ChatPage() {
       gap: '1rem',
       paddingBottom: '2rem'
     }}>
+      {/* Selection FAB */}
+      <AnimatePresence>
+        {selection && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, y: 10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 10 }}
+            onClick={handleExplainSelection}
+            style={{
+              position: 'fixed',
+              left: selection.x,
+              top: selection.y,
+              transform: 'translateX(-50%)',
+              zIndex: 100,
+              background: 'linear-gradient(135deg, #FF3B3F 0%, #FEB236 100%)',
+              border: 'none',
+              borderRadius: '20px',
+              padding: '6px 14px',
+              color: 'white',
+              fontSize: '0.8rem',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.4rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(255, 59, 63, 0.4)',
+              pointerEvents: 'auto'
+            }}
+          >
+            <Sparkles size={14} />
+            Explain
+          </motion.button>
+        )}
+      </AnimatePresence>
+
+      {/* Explanation Overlay */}
+      {showOverlay && (
+        <ExplanationOverlay 
+          data={explanationData} 
+          isLoading={isExplaining} 
+          onClose={() => setShowOverlay(false)} 
+        />
+      )}
+
       {/* 1. Left Feedback Pane */}
       <aside className="glass" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
         <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -121,14 +213,18 @@ export default function ChatPage() {
 
       {/* 2. Main Chat Window */}
       <section className="glass" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-        <div ref={scrollRef} style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          padding: '2rem', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '1.5rem' 
-        }}>
+        <div 
+          ref={scrollRef} 
+          onMouseUp={handleSelection} 
+          style={{ 
+            flex: 1, 
+            overflowY: 'auto', 
+            padding: '2rem', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '1.5rem' 
+          }}
+        >
           {messages.map((m, i) => (
             <motion.div 
               key={i} 
@@ -141,7 +237,8 @@ export default function ChatPage() {
                 borderRadius: m.role === 'user' ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                 background: m.role === 'user' ? 'var(--primary)' : 'var(--glass-hover)',
                 fontWeight: 500,
-                boxShadow: m.role === 'user' ? '0 10px 15px -3px rgba(255, 59, 63, 0.2)' : 'none'
+                boxShadow: m.role === 'user' ? '0 10px 15px -3px rgba(255, 59, 63, 0.2)' : 'none',
+                cursor: m.role === 'assistant' ? 'text' : 'default'
               }}
             >
               {m.content}
