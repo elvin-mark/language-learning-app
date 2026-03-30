@@ -6,6 +6,7 @@ import { BookOpen, Target, Zap, Activity } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import UsageChart from '@/components/UsageChart';
+import Link from 'next/link';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -90,20 +91,22 @@ export default function Dashboard() {
               Practice what you've learned in a natural conversation.
             </p>
           </div>
-          <button 
-            className="glass-hover"
-            style={{ 
-              background: 'var(--primary)', 
-              color: 'white', 
-              border: 'none', 
-              padding: '0.8rem 2rem', 
-              borderRadius: '30px', 
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            Start Chat
-          </button>
+          <Link href="/chat">
+            <button 
+              className="glass-hover"
+              style={{ 
+                background: 'var(--primary)', 
+                color: 'white', 
+                border: 'none', 
+                padding: '0.8rem 2rem', 
+                borderRadius: '30px', 
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Start Chat
+            </button>
+          </Link>
         </div>
       </section>
     </div>
