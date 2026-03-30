@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+sqlalchemy
+sqlmodel
+langchain
+langchain-groq
+pydantic-settings
+python-dotenv
+axios
+pydantic
+langchain-openai
