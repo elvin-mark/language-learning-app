@@ -106,6 +106,7 @@ export default function SuggestionsCarousel({ suggestions, onSelect }: Suggestio
       <AnimatePresence>
         {showLeftArrow && (
           <motion.button
+            key="left-arrow"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
@@ -135,6 +136,7 @@ export default function SuggestionsCarousel({ suggestions, onSelect }: Suggestio
         )}
         {showRightArrow && (
           <motion.button
+            key="right-arrow"
             initial={{ opacity: 0, scale: 0.8 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.8 }}
