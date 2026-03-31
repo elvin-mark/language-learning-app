@@ -46,7 +46,9 @@ export default function Sidebar() {
           zIndex: 1000, 
           borderRadius: '20px 20px 0 0',
           borderTop: '1px solid var(--border)',
-          padding: '0 1rem'
+          padding: '0 1rem',
+          backgroundColor: 'rgba(15, 15, 18, 0.92)',
+          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4)'
         }}
       >
         {NAV_ITEMS.map((item) => {

@@ -6,7 +6,7 @@
   --foreground: #F5F5F7;
   --card-bg: rgba(255, 255, 255, 0.05);
   --border: rgba(255, 255, 255, 0.1);
-  --glass: rgba(255, 255, 255, 0.03);
+  --glass: rgba(255, 255, 255, 0.08);
   --glass-border: rgba(255, 255, 255, 0.1);
   --glass-hover: rgba(255, 255, 255, 0.08);
   --text-dim: #A1A1AA;
@@ -49,12 +49,13 @@ a {
 .gradient-text {
   background: linear-gradient(135deg, #FF3B3F 0%, #FEB236 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
 .gradient-bg {
   background: radial-gradient(circle at top right, rgba(255, 59, 63, 0.1), transparent),
-              radial-gradient(circle at bottom left, rgba(107, 91, 149, 0.1), transparent);
+    radial-gradient(circle at bottom left, rgba(107, 91, 149, 0.1), transparent);
 }
 
 /* Layout Classes */
@@ -85,13 +86,15 @@ a {
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .sidebar {
-    display: none; /* Hide vertical sidebar on mobile */
+    display: none;
+    /* Hide vertical sidebar on mobile */
   }
 
   .main-content {
     margin-left: 0;
     padding: 1.5rem;
-    padding-bottom: 6rem; /* Space for bottom nav */
+    padding-bottom: 6rem;
+    /* Space for bottom nav */
   }
 
   h1 {
