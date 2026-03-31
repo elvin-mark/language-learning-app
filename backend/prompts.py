@@ -18,6 +18,7 @@ def get_system_prompt(target_language: str, llm_provider: str = "groq") -> str:
     - Detailed feedback if the user's input was in {target_language}.
     - A list of words and grammar patterns used in your response.
     - RELIABLE PRONUNCIATION GUIDES: For Chinese, provide Pinyin. For Japanese, provide Romaji/Hiragana. For Korean, provide Romanization.
+    - SUGGESTIONS: Exactly 4 natural and diverse next sentences for the user to pick from to continue the chat. Each must have a 'suggestion' (target language) and 'translation' (English).
     """
     
     if llm_provider == "local":
@@ -101,6 +102,7 @@ def get_roleplay_prompt(scenario: dict, target_language: str, llm_provider: str 
     - Detailed feedback on the user's {target_language} usage (feedback)
     - Updated list of completed objective indices (completed_objective_indices). ONLY include indices for objectives that have been completed since the start of the mission, including the ones just finished.
     - A list of helpful hints for the remaining UNMET objectives (objective_hints). For each unmet objective, if the user made a relevant attempt but it was incomplete or incorrect, provide a brief, supportive hint in English on what they missed. The list must match the order and length of the scenario's 'objectives' list. Use an empty string if the objective was completed or no hint is needed.
+    - SUGGESTIONS: Exactly 4 natural and diverse next sentences for the user to pick from to continue the chat. Each must have a 'suggestion' (target language) and 'translation' (English).
     """
     
     if llm_provider == "local":

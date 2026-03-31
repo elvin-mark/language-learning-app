@@ -16,6 +16,7 @@ import WritingAssistant from '@/components/WritingAssistant';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import ExplanationOverlay from '@/components/ExplanationOverlay';
+import SuggestionsCarousel from '@/components/SuggestionsCarousel';
 import Link from 'next/link';
 
 interface Message {
@@ -24,6 +25,7 @@ interface Message {
   feedback?: any;
   grammar?: any[];
   vocabulary?: any[];
+  suggestions?: any[];
 }
 
 interface SelectionState {
@@ -97,32 +99,35 @@ export default function StandardChatPage() {
     }
   };
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isLoading) return;
-    const userMsg: Message = { role: 'user', content: inputValue };
-    setMessages(prev => [...prev, userMsg]);
-    setInputValue('');
+  const handleSend = async (overrideMessage?: string) => {
+    const textToSend = overrideMessage || inputValue;
+    if (!textToSend.trim() || isLoading) return;
+    
     setIsLoading(true);
+    setInputValue('');
+    setShowAssistant(false);
+    
+    const newMessage: Message = { role: 'user', content: textToSend };
+    setMessages(prev => [...prev, newMessage]);
+    
     try {
-      const response = await api.post('/chat', {
-        user_message: inputValue,
-        chat_history: messages.map(m => ({ role: m.role, content: m.content }))
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      const response = await api.post('/chat', { 
+        user_message: textToSend,
+        chat_history: history
       });
-      const aiData = response.data;
-      const aiMsg: Message = {
-        role: 'assistant',
-        content: aiData.response_target,
-        grammar: aiData.grammar,
-        vocabulary: aiData.vocabulary
+      
+      const aiResp = response.data;
+      const aiMessage: Message = { 
+        role: 'assistant', 
+        content: aiResp.response_target,
+        feedback: aiResp.feedback,
+        grammar: aiResp.grammar,
+        vocabulary: aiResp.vocabulary,
+        suggestions: aiResp.suggestions
       };
-      setMessages(prev => {
-        const newMsgs = [...prev];
-        const lastIdx = newMsgs.findLastIndex(m => m.role === 'user');
-        if (lastIdx !== -1) {
-          newMsgs[lastIdx].feedback = aiData.feedback;
-        }
-        return [...newMsgs, aiMsg];
-      });
+      
+      setMessages(prev => [...prev, aiMessage]);
     } catch (err) {
       console.error('Chat error:', err);
     } finally {
@@ -314,6 +319,17 @@ export default function StandardChatPage() {
               onClose={() => setShowAssistant(false)}
               onSelect={(text) => setInputValue(text)}
             />
+
+            {/* Suggested Replies */}
+            <AnimatePresence>
+              {latestAIInfo?.suggestions && latestAIInfo.suggestions.length > 0 && !isLoading && (
+                <SuggestionsCarousel 
+                  suggestions={latestAIInfo.suggestions}
+                  onSelect={handleSend}
+                />
+              )}
+            </AnimatePresence>
+
             <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
               <button 
                 onClick={() => setShowAssistant(!showAssistant)}
@@ -352,7 +368,7 @@ export default function StandardChatPage() {
                   fontSize: '1rem'
                 }}
               />
-              <button onClick={handleSend} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
+              <button onClick={() => handleSend()} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
                 <Send size={18} />
               </button>
             </div>

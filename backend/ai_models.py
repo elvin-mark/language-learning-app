@@ -19,18 +19,19 @@ class FeedbackInfo(BaseModel):
     explanation: Optional[str] = Field(None, description="Explanation of the correction or naturalness")
     natural_score: int = Field(description="How natural the user sentence sounds (1-10)")
 
+class SuggestionResponse(BaseModel):
+    suggestion: str = Field(description="A natural next sentence for the user in the target language")
+    translation: str = Field(description="English translation of the suggestion")
+
 class AISystemResponse(BaseModel):
     response_target: str = Field(description="The natural response to the user's message in the target language")
     response_english: str = Field(description="The English translation of the AI response")
     feedback: Optional[FeedbackInfo] = Field(None, description="Analysis of the user's input if it was in the target language")
     vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words used in the AI response")
     grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns used in the AI response")
+    suggestions: List[SuggestionResponse] = Field(default_factory=list, description="Four natural next sentences for the user to pick from")
     completed_objective_indices: List[int] = Field(default_factory=list, description="The indexes of mission objectives that the student successfully completed in this turn (0-indexed)")
     objective_hints: List[str] = Field(default_factory=list, description="Helpful hints or reasons why specific objectives were NOT met, in the same order as scenario objectives. Empty string if met or no hint needed.")
-
-class SuggestionResponse(BaseModel):
-    suggestion: str = Field(description="A natural next sentence for the user in the target language")
-    translation: str = Field(description="English translation of the suggestion")
 
 class ScenarioInfo(BaseModel):
     id: str = Field(description="Slugified version of the mission name")

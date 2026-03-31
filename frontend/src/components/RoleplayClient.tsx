@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
 import WritingAssistant from '@/components/WritingAssistant';
+import SuggestionsCarousel from '@/components/SuggestionsCarousel';
 import { 
   Send, 
   CheckCircle2, 
@@ -35,6 +36,7 @@ interface Message {
   content: string;
   completed_indices?: number[];
   hints?: string[];
+  suggestions?: any[];
 }
 
 export default function RoleplayClient({ id }: { id: string }) {
@@ -108,45 +110,48 @@ export default function RoleplayClient({ id }: { id: string }) {
     }
   }, [completedObjectives, scenario, isSuccess]);
 
-  const handleSend = async () => {
-    if (!inputValue.trim() || isLoading || isSuccess) return;
-
-    const userMsg: Message = { role: 'user', content: inputValue };
-    setMessages(prev => [...prev, userMsg]);
-    setInputValue('');
+  const handleSend = async (overrideMessage?: string) => {
+    const textToSend = overrideMessage || inputValue;
+    if (!textToSend.trim() || isLoading || isSuccess) return;
+    
     setIsLoading(true);
-
+    setInputValue('');
+    setShowAssistant(false);
+    
+    const userMsg: Message = { role: 'user', content: textToSend };
+    setMessages(prev => [...prev, userMsg]);
+    
     try {
-      const response = await api.post('/chat', {
-        user_message: inputValue,
-        chat_history: messages.map(m => ({ role: m.role, content: m.content })),
+      const history = messages.map(m => ({ role: m.role, content: m.content }));
+      const response = await api.post('/chat', { 
+        user_message: textToSend,
+        chat_history: history,
         scenario_id: id,
         custom_scenario: id === 'custom' ? scenario : null
       });
-
+      
       const aiData = response.data;
       
-      // Update objectives
       if (aiData.completed_objective_indices) {
         setCompletedObjectives(prev => {
           const combined = Array.from(new Set([...prev, ...aiData.completed_objective_indices]));
           return combined;
         });
       }
-
+      
       if (aiData.objective_hints) {
         setActiveHints(aiData.objective_hints);
       }
-
+      
       const aiMsg: Message = {
         role: 'assistant',
         content: aiData.response_target,
         completed_indices: aiData.completed_objective_indices,
-        hints: aiData.objective_hints
+        hints: aiData.objective_hints,
+        suggestions: aiData.suggestions
       };
-
+      
       setMessages(prev => [...prev, aiMsg]);
-
     } catch (err) {
       console.error('Chat error:', err);
     } finally {
@@ -156,7 +161,9 @@ export default function RoleplayClient({ id }: { id: string }) {
 
   if (!scenario) return <div className="loader"></div>;
 
-  return (
+    const lastAssistantMessage = messages.findLast(m => m.role === 'assistant');
+
+    return (
     <div style={{ 
       maxWidth: '1300px', 
       margin: '0 auto', 
@@ -247,13 +254,25 @@ export default function RoleplayClient({ id }: { id: string }) {
         </section>
         
         <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', position: 'relative' }}>
+          {/* Suggested Replies */}
+          <AnimatePresence>
+            {lastAssistantMessage?.suggestions && 
+             lastAssistantMessage.suggestions.length > 0 && 
+             !isLoading && !isSuccess && (
+              <SuggestionsCarousel 
+                suggestions={lastAssistantMessage.suggestions}
+                onSelect={handleSend}
+              />
+            )}
+          </AnimatePresence>
+          
           <div style={{ display: 'flex', gap: '0.8rem' }}>
             <WritingAssistant 
               draftText={inputValue}
               isOpen={showAssistant}
               onClose={() => setShowAssistant(false)}
               onSelect={(text) => setInputValue(text)}
-              scenarioId={scenario.id}
+              scenarioId={scenario?.id}
             />
             <button 
                 onClick={() => setShowAssistant(!showAssistant)}
@@ -280,7 +299,7 @@ export default function RoleplayClient({ id }: { id: string }) {
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleSend()}
               disabled={isLoading || isSuccess}
-              placeholder={`Type your response in ${targetLanguage}...`}
+              placeholder={`Respond in ${targetLanguage}...`}
               style={{ 
                 flex: 1, 
                 background: 'rgba(255,255,255,0.03)', 
@@ -289,11 +308,12 @@ export default function RoleplayClient({ id }: { id: string }) {
                 padding: '1rem 1.5rem',
                 color: 'white',
                 outline: 'none',
-                fontSize: '1rem'
+                fontSize: '1rem',
+                opacity: isSuccess ? 0.5 : 1
               }}
             />
             <button 
-              onClick={handleSend}
+              onClick={() => handleSend()}
               disabled={isLoading || isSuccess}
               style={{ 
                 background: 'var(--primary)', 
