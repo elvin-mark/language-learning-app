@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain } from 'lucide-react';
 import { clsx } from 'clsx';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
@@ -10,6 +10,7 @@ import { useState, useEffect } from 'react';
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
+  { label: 'Practice', icon: Brain, href: '/practice' },
   { label: 'Library', icon: BookOpen, href: '/library' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];

@@ -8,6 +8,7 @@ from typing import List, Optional
 from datetime import datetime
 import json
 import os
+import random
 
 from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage
@@ -321,6 +322,45 @@ def get_grammar(
     items = session.exec(query.offset((page - 1) * size).limit(size)).all()
     
     return {"items": items, "total": total}
+
+@api_router.get("/practice/items")
+def get_practice_items(
+    count: int = 10, 
+    session: Session = Depends(get_session), 
+    current_user: User = Depends(get_current_user)
+):
+    words = session.exec(select(Word).where(
+        Word.user_id == current_user.id,
+        Word.language == current_user.target_language
+    )).all()
+    
+    grammar = session.exec(select(GrammarPoint).where(
+        GrammarPoint.user_id == current_user.id,
+        GrammarPoint.language == current_user.target_language
+    )).all()
+    
+    # Mix and normalize for flashcards
+    items = []
+    for w in words:
+        items.append({
+            "id": w.id,
+            "type": "word",
+            "front": w.text,
+            "back": w.meaning,
+            "pronunciation": w.pronunciation,
+            "example": w.example_sentence
+        })
+    for g in grammar:
+        items.append({
+            "id": g.id,
+            "type": "grammar",
+            "front": g.pattern,
+            "back": g.explanation,
+            "example": g.example
+        })
+    
+    random.shuffle(items)
+    return items[:count]
 
 # Include the API router
 app.include_router(api_router)
