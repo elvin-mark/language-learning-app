@@ -13,7 +13,7 @@ import random
 from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage
 from backend.ai_engine import AIEngine, AISystemResponse
-from backend.schemas import ChatRequest, UserUpdate, UserResponse, ExplainRequest
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -157,6 +157,23 @@ def get_stats(session: Session = Depends(get_session), current_user: User = Depe
         "daily_streak": streak,
         "last_activity": datetime.now()
     }
+
+@api_router.post("/chat/suggest")
+def suggest_chat(request: List[ChatMessageBase], current_user: User = Depends(get_current_user)):
+    try:
+        # Convert Pydantic history to dict
+        history_dicts = [m.dict() for m in request]
+        
+        suggestion_data = ai_engine.get_suggestion(
+            target_language=current_user.target_language,
+            llm_provider=current_user.llm_provider,
+            local_llm_url=current_user.local_llm_url,
+            chat_history=history_dicts
+        )
+        
+        return suggestion_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/usage")
 def get_usage(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):

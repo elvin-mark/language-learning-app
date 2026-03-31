@@ -31,6 +31,7 @@ export default function ChatPage() {
   const [isExplaining, setIsExplaining] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [isSuggesting, setIsSuggesting] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   
@@ -125,6 +126,21 @@ export default function ChatPage() {
       console.error('Chat error:', err);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSuggest = async () => {
+    if (isLoading || isSuggesting) return;
+    setIsSuggesting(true);
+    try {
+      const response = await api.post('/chat/suggest', 
+        messages.map(m => ({ role: m.role, content: m.content }))
+      );
+      setInputValue(response.data.suggestion);
+    } catch (err) {
+      console.error('Suggestion error:', err);
+    } finally {
+      setIsSuggesting(false);
     }
   };
 
@@ -271,7 +287,29 @@ export default function ChatPage() {
           {isLoading && <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>AI is thinking...</div>}
         </div>
 
-        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '1rem' }}>
+        <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+          <button 
+            onClick={handleSuggest}
+            disabled={isLoading || isSuggesting}
+            style={{ 
+              background: 'rgba(255, 255, 255, 0.05)', 
+              border: '1px solid var(--border)', 
+              borderRadius: '50%',
+              width: '45px', 
+              height: '45px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              cursor: (isLoading || isSuggesting) ? 'not-allowed' : 'pointer',
+              color: 'var(--primary)',
+              opacity: (isLoading || isSuggesting) ? 0.5 : 1,
+              transition: 'all 0.2s'
+            }}
+            title="Suggest a response"
+          >
+            <Sparkles size={20} style={{ animation: isSuggesting ? 'pulse 2s infinite' : 'none' }} />
+          </button>
+
           <input 
             type="text" 
             value={inputValue}

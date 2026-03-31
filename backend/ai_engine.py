@@ -32,6 +32,10 @@ class AISystemResponse(BaseModel):
     vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words used in the AI response")
     grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns used in the AI response")
 
+class SuggestionResponse(BaseModel):
+    suggestion: str = Field(description="A natural next sentence for the user in the target language")
+    translation: str = Field(description="English translation of the suggestion")
+
 class AIEngine:
     def __init__(self):
         self.groq_api_key = os.getenv("GROQ_API_KEY")
@@ -211,3 +215,78 @@ class AIEngine:
             print(f"Error explaining snippet: {str(e)}")
             # For brevity, let's just raise for now
             raise e
+
+    def get_suggestion(self, target_language: str = "Korean", 
+                       llm_provider: str = "groq", local_llm_url: Optional[str] = None,
+                       chat_history: List[dict] = []) -> dict:
+        
+        # Use a simpler prompt for suggestions
+        llm = self.get_llm(llm_provider, local_llm_url)
+        # Note: get_llm currently hardcodes AISystemResponse. 
+        # For suggestions, we want something simpler.
+        # Let's override it for this specific call.
+        
+        if llm_provider == "local" and local_llm_url:
+            from langchain_openai import ChatOpenAI
+            llm_simple = ChatOpenAI(
+                base_url=local_llm_url,
+                api_key="sk-not-needed",
+                temperature=0.8,
+                model_name="local-model" 
+            ).with_structured_output(SuggestionResponse, method="json_mode", include_raw=True)
+        else:
+            llm_simple = ChatGroq(
+                model="llama-3.3-70b-versatile",
+                temperature=0.8,
+                api_key=self.groq_api_key
+            ).with_structured_output(SuggestionResponse, include_raw=True)
+
+        system_prompt = f"""
+        You are a helpful {target_language} language immersion coach. 
+        The student is in the middle of a conversation and is stuck on what to say next.
+        
+        Your task:
+        Suggest ONE natural, simple, and relevant sentence the user could say to continue the conversation in {target_language}.
+        
+        Guidelines:
+        1. The suggestion must be in {target_language}.
+        2. Keep it natural but simple enough for a language learner.
+        3. Match the current context and tone of the chat.
+        4. Provide an English translation.
+        """
+        
+        if llm_provider == "local":
+            system_prompt += "\n        CRITICAL: Respond ONLY with a valid JSON object."
+
+        messages = [("system", system_prompt)]
+        for msg in chat_history[-8:]: # Look at context
+            role = "human" if msg["role"] == "user" else "assistant"
+            messages.append((role, msg["content"]))
+        
+        messages.append(("human", "Help! I don't know what to say next. Suggest something for me."))
+        
+        prompt = ChatPromptTemplate.from_messages(messages)
+        chain = prompt | llm_simple
+        
+        try:
+            full_result = chain.invoke({})
+            parsed = full_result.get('parsed')
+            if parsed:
+                return {"suggestion": parsed.suggestion, "translation": parsed.translation}
+            
+            # Fallback handling for messy outputs
+            raw = full_result.get('raw')
+            if raw and hasattr(raw, 'content'):
+                clean_json = self._clean_json_string(raw.content)
+                import json
+                parsed_dict = json.loads(clean_json)
+                return {"suggestion": parsed_dict.get("suggestion"), "translation": parsed_dict.get("translation")}
+                
+            raise Exception("No suggestion generated")
+        except Exception as e:
+            print(f"Error getting suggestion: {str(e)}")
+            # Very simple hardcoded fallback
+            return {
+                "suggestion": "안녕하세요!" if target_language == "Korean" else "こんにちは!", 
+                "translation": "Hello!"
+            }
