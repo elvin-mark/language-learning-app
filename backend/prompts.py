@@ -98,9 +98,26 @@ def get_roleplay_prompt(scenario: dict, target_language: str, llm_provider: str 
     - English (response_english)
     - Detailed feedback on the user's {target_language} usage (feedback)
     - Updated list of completed objective indices (completed_objective_indices). ONLY include indices for objectives that have been completed since the start of the mission, including the ones just finished.
+    - A list of helpful hints for the remaining UNMET objectives (objective_hints). For each unmet objective, if the user made a relevant attempt but it was incomplete or incorrect, provide a brief, supportive hint in English on what they missed. The list must match the order and length of the scenario's 'objectives' list. Use an empty string if the objective was completed or no hint is needed.
     """
     
     if llm_provider == "local":
         prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
         
+    return prompt
+
+def get_scenario_generation_prompt(topic: str, target_language: str, llm_provider: str = "groq") -> str:
+    prompt = f"""
+    You are an expert language learning curriculum designer for {target_language}.
+    
+    TASK: Generate a realistic roleplay scenario based on the TOPIC provided by the user.
+    TOPIC: {topic}
+    
+    The scenario must be immersive and educationally valuable.
+    The objectives must be clear and trackable through dialogue.
+    The initial_message must be natural and in {target_language}.
+    
+    Please provide the scenario details including a catchy name, a role for the AI, a clear goal, and 3-4 specific objectives.
+    """
+    
     return prompt

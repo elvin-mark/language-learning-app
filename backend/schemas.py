@@ -9,6 +9,7 @@ class ChatRequest(BaseModel):
     user_message: str
     chat_history: List[ChatMessageBase] = []
     scenario_id: Optional[str] = None
+    custom_scenario: Optional[dict] = None
 
 class UserResponse(BaseModel):
     id: int
@@ -29,3 +30,6 @@ class StatResponse(BaseModel):
 
 class ExplainRequest(BaseModel):
     text: str
+
+class ScenarioGenerateRequest(BaseModel):
+    topic: str

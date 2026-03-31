@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from backend.ai_models import WordInfo, GrammarInfo, FeedbackInfo, AISystemResponse, SuggestionResponse
+from backend.ai_models import WordInfo, GrammarInfo, FeedbackInfo, AISystemResponse, SuggestionResponse, ScenarioInfo
 from backend import prompts as ai_prompts
 
 class AIEngine:
@@ -28,7 +28,7 @@ class AIEngine:
             # Use json_mode for local LLMs as they often don't support the latest OpenAI 'Structured Outputs' API
             return llm.with_structured_output(output_model, method="json_mode", include_raw=True)
         else:
-            model_name = "llama-3.3-70b-versatile" if output_model == SuggestionResponse else "openai/gpt-oss-20b"
+            model_name = "llama-3.3-70b-versatile"
             llm = ChatGroq(
                 model=model_name,
                 temperature=0.7,
@@ -197,4 +197,35 @@ class AIEngine:
             return {
                 "suggestion": "안녕하세요!" if target_language == "Korean" else "こんにちは!", 
                 "translation": "Hello!"
+            }
+
+    async def generate_scenario(self, topic: str, target_language: str, 
+                                llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+        """Generates a full roleplay scenario from a topic."""
+        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=ScenarioInfo)
+        prompt = ai_prompts.get_scenario_generation_prompt(topic, target_language, llm_provider)
+        
+        try:
+            raw_msg = await structured_llm.ainvoke(prompt)
+            # handle the include_raw=True format
+            if isinstance(raw_msg, dict) and "parsed" in raw_msg:
+                return raw_msg["parsed"].dict()
+            
+            # fallback if it's already parsed
+            if hasattr(raw_msg, "dict"):
+                return raw_msg.dict()
+            
+            raise Exception("AI failed to return valid structured scenario")
+        except Exception as e:
+            print(f"Error generating scenario: {str(e)}")
+            # Fallback to a generic coffee shop if everything fails
+            return {
+                "id": f"gen-{int(os.times()[4])}",
+                "name": f"Practice: {topic[:20]}",
+                "description": f"A scenario about {topic}.",
+                "role": "Conversation Partner",
+                "goal": "Communicate naturally about the topic.",
+                "objectives": ["Introduce yourself", "Ask one question", "Say something positive"],
+                "initial_message": "안녕하세요! 만나서 반가워요." if target_language == "Korean" else "こんにちは！よろしくお願いします。",
+                "difficulty": "Intermediate"
             }

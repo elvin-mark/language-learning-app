@@ -35,6 +35,7 @@ export default function StandardChatPage() {
   const [isSuggesting, setIsSuggesting] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const targetLanguage = user?.target_language || 'Korean';
 
@@ -49,10 +50,8 @@ export default function StandardChatPage() {
   const latestAIInfo = messages.findLast(m => m.role === 'assistant');
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isLoading]);
 
   const handleSelection = () => {
     const sel = window.getSelection();
@@ -151,10 +150,11 @@ export default function StandardChatPage() {
 
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : '260px 1fr 260px', 
-        flex: 1,
+        gridTemplateColumns: isMobile ? '1fr' : '280px 1fr 280px', 
+        height: isMobile ? 'auto' : 'calc(100vh - 12rem)', 
         gap: '1.2rem',
-        overflow: 'hidden'
+        overflow: isMobile ? 'visible' : 'hidden',
+        minHeight: 0
       }}>
         {/* Selection FAB */}
         <AnimatePresence>
@@ -206,7 +206,9 @@ export default function StandardChatPage() {
           flexDirection: 'column', 
           gap: '1rem',
           order: isMobile ? 1 : undefined,
-          maxWidth: isMobile ? '100%' : '260px'
+          maxWidth: isMobile ? '100%' : '280px',
+          overflowY: 'auto',
+          minHeight: 0
         }}>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', color: 'var(--primary)', fontSize: '1.1rem' }}>
             <CheckCircle size={18} /> Feedback
@@ -238,7 +240,8 @@ export default function StandardChatPage() {
           display: 'flex', 
           flexDirection: 'column', 
           overflow: 'hidden',
-          order: isMobile ? 0 : undefined
+          order: isMobile ? 0 : undefined,
+          minHeight: 0
         }}>
           <div 
             ref={scrollRef} 
@@ -290,6 +293,7 @@ export default function StandardChatPage() {
               </motion.div>
             ))}
             {isLoading && <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>AI is thinking...</div>}
+            <div ref={messagesEndRef} />
           </div>
 
           <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
@@ -318,7 +322,8 @@ export default function StandardChatPage() {
           gap: '2rem', 
           overflowY: 'auto',
           order: isMobile ? 2 : undefined,
-          maxWidth: isMobile ? '100%' : '260px'
+          maxWidth: isMobile ? '100%' : '280px',
+          minHeight: 0
         }}>
           <div>
             <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.2rem', color: 'var(--accent)', fontSize: '1.1rem' }}>

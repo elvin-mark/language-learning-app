@@ -2,14 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
-import { 
-  Send, 
-  CheckCircle2, 
-  Target, 
-  ChevronLeft, 
-  Trophy, 
-  MessageSquare
-} from 'lucide-react';
+import { Send, CheckCircle2, ChevronLeft, Target, Award as Trophy, Info, MessageSquare, Circle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -30,6 +23,7 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   completed_indices?: number[];
+  hints?: string[];
 }
 
 export default function RoleplayClient({ id }: { id: string }) {
@@ -39,20 +33,43 @@ export default function RoleplayClient({ id }: { id: string }) {
   const [inputValue, setInputValue] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [completedObjectives, setCompletedObjectives] = useState<number[]>([]);
+  const [activeHints, setActiveHints] = useState<string[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
   
+  const [isMobile, setIsMobile] = useState(false);
+  
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const targetLanguage = user?.target_language || 'Korean';
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   useEffect(() => {
     const fetchScenario = async () => {
       try {
-        const res = await api.get(`/scenarios/${id}`);
-        setScenario(res.data);
+        let scenarioData;
+        if (id === 'custom') {
+          const stored = sessionStorage.getItem('custom_scenario');
+          if (stored) {
+            scenarioData = JSON.parse(stored);
+          } else {
+            throw new Error('No custom scenario found in session');
+          }
+        } else {
+          const res = await api.get(`/scenarios/${id}`);
+          scenarioData = res.data;
+        }
+        
+        setScenario(scenarioData);
         // Add initial message from AI
         setMessages([{ 
           role: 'assistant', 
-          content: res.data.initial_message 
+          content: scenarioData.initial_message 
         }]);
       } catch (err) {
         console.error('Failed to fetch scenario:', err);
@@ -62,10 +79,11 @@ export default function RoleplayClient({ id }: { id: string }) {
   }, [id]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
+    messagesEndRef.current?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'end'
+    });
+  }, [messages, isLoading]);
 
   useEffect(() => {
     if (scenario && completedObjectives.length === scenario.objectives.length && !isSuccess) {
@@ -91,7 +109,8 @@ export default function RoleplayClient({ id }: { id: string }) {
       const response = await api.post('/chat', {
         user_message: inputValue,
         chat_history: messages.map(m => ({ role: m.role, content: m.content })),
-        scenario_id: id
+        scenario_id: id,
+        custom_scenario: id === 'custom' ? scenario : null
       });
 
       const aiData = response.data;
@@ -104,10 +123,15 @@ export default function RoleplayClient({ id }: { id: string }) {
         });
       }
 
+      if (aiData.objective_hints) {
+        setActiveHints(aiData.objective_hints);
+      }
+
       const aiMsg: Message = {
         role: 'assistant',
         content: aiData.response_target,
-        completed_indices: aiData.completed_objective_indices
+        completed_indices: aiData.completed_objective_indices,
+        hints: aiData.objective_hints
       };
 
       setMessages(prev => [...prev, aiMsg]);
@@ -125,16 +149,23 @@ export default function RoleplayClient({ id }: { id: string }) {
     <div style={{ 
       maxWidth: '1300px', 
       margin: '0 auto', 
-      height: 'calc(100vh - 6.5rem)', 
+      height: isMobile ? 'auto' : 'calc(100vh - 6.5rem)', 
       display: 'grid', 
-      gridTemplateColumns: '1fr 300px', 
-      gap: '2.5rem',
-      padding: '0 1.5rem'
+      gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 260px', 
+      gap: '2rem', 
+      padding: '1rem',
+      overflow: isMobile ? 'visible' : 'hidden'
     }}>
       
-      {/* 1. Main Chat Area */}
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <header style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateRows: 'auto 1fr auto', 
+        height: '100%', 
+        minHeight: 0,
+        gap: '1rem',
+        overflow: 'hidden'
+      }}>
+        <header style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
           <Link href="/chat/missions">
             <button className="glass-hover" style={{ background: 'rgba(255,255,255,0.05)', border: 'none', padding: '0.6rem', borderRadius: '12px', color: 'white', cursor: 'pointer' }}>
                <ChevronLeft size={20} />
@@ -146,7 +177,7 @@ export default function RoleplayClient({ id }: { id: string }) {
           </div>
         </header>
 
-        <section className="glass" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative' }}>
+        <section className="glass" style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', position: 'relative', minHeight: 0 }}>
           <div ref={scrollRef} style={{ flex: 1, overflowY: 'auto', padding: '2rem', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {messages.map((m, i) => (
               <motion.div 
@@ -169,6 +200,7 @@ export default function RoleplayClient({ id }: { id: string }) {
               </motion.div>
             ))}
             {isLoading && <div style={{ color: 'var(--text-dim)', fontSize: '0.85rem' }}>{scenario.role} is typing...</div>}
+            <div ref={messagesEndRef} />
           </div>
 
           {isSuccess && (
@@ -201,54 +233,53 @@ export default function RoleplayClient({ id }: { id: string }) {
               </Link>
             </motion.div>
           )}
-
-          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)' }}>
-            <div style={{ display: 'flex', gap: '0.8rem' }}>
-              <input 
-                type="text" 
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                disabled={isLoading || isSuccess}
-                placeholder={`Type your response in ${targetLanguage}...`}
-                style={{ 
-                  flex: 1, 
-                  background: 'rgba(255,255,255,0.03)', 
-                  border: '1px solid var(--border)', 
-                  borderRadius: '24px', 
-                  padding: '1rem 1.5rem',
-                  color: 'white',
-                  outline: 'none',
-                  fontSize: '1rem'
-                }}
-              />
-              <button 
-                onClick={handleSend}
-                disabled={isLoading || isSuccess}
-                style={{ 
-                  background: 'var(--primary)', 
-                  border: 'none', 
-                  borderRadius: '50%',
-                  width: '50px', 
-                  height: '50px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  cursor: 'pointer',
-                  color: 'white',
-                  transition: 'transform 0.2s ease',
-                  opacity: (isLoading || isSuccess) ? 0.5 : 1
-                }}
-              >
-                <Send size={22} />
-              </button>
-            </div>
-          </div>
         </section>
+        
+        <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px' }}>
+          <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <input 
+              type="text" 
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              disabled={isLoading || isSuccess}
+              placeholder={`Type your response in ${targetLanguage}...`}
+              style={{ 
+                flex: 1, 
+                background: 'rgba(255,255,255,0.03)', 
+                border: '1px solid var(--border)', 
+                borderRadius: '24px', 
+                padding: '1rem 1.5rem',
+                color: 'white',
+                outline: 'none',
+                fontSize: '1rem'
+              }}
+            />
+            <button 
+              onClick={handleSend}
+              disabled={isLoading || isSuccess}
+              style={{ 
+                background: 'var(--primary)', 
+                border: 'none', 
+                borderRadius: '50%',
+                width: '50px', 
+                height: '50px', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                cursor: 'pointer',
+                color: 'white',
+                transition: 'transform 0.2s ease',
+                opacity: (isLoading || isSuccess) ? 0.5 : 1
+              }}
+            >
+              <Send size={22} />
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* 2. Objective Sidebar */}
-      <aside className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem' }}>
+      <aside className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', gap: '2rem', overflowY: 'auto' }}>
         <div>
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', fontSize: '1.2rem' }}>
             <Target size={20} color="var(--primary)" /> Objectives
@@ -256,58 +287,56 @@ export default function RoleplayClient({ id }: { id: string }) {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {scenario.objectives.map((obj, i) => {
               const isDone = completedObjectives.includes(i);
+              const hint = activeHints[i];
               return (
-                <motion.div 
-                  key={i}
-                  animate={{ 
-                    scale: isDone ? [1, 1.05, 1] : 1,
-                    backgroundColor: isDone ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.02)'
-                  }}
-                  style={{ 
-                    padding: '1rem', 
-                    borderRadius: '16px', 
-                    border: '1px solid',
-                    borderColor: isDone ? '#22c55e' : 'var(--border)',
+                <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                  <div style={{
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '1rem',
+                    gap: '0.8rem',
+                    padding: '0.8rem',
+                    borderRadius: '12px',
+                    background: isDone ? 'rgba(34, 197, 94, 0.1)' : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${isDone ? '#22c55e' : 'var(--border)'}`,
+                    opacity: isDone ? 1 : 0.7,
                     transition: 'all 0.3s ease'
-                  }}
-                >
-                  <div style={{ 
-                    width: '24px', 
-                    height: '24px', 
-                    borderRadius: '50%', 
-                    border: '2px solid',
-                    borderColor: isDone ? '#22c55e' : 'var(--text-dim)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: isDone ? '#22c55e' : 'transparent',
-                    color: 'white'
                   }}>
-                    {isDone && <CheckCircle2 size={16} />}
+                    {isDone ? <CheckCircle2 size={18} color="#22c55e" /> : <Circle size={18} color="white" />}
+                    <span style={{ fontSize: '0.9rem', color: isDone ? '#22c55e' : 'white', fontWeight: isDone ? 600 : 400 }}>{obj}</span>
                   </div>
-                  <span style={{ 
-                    fontSize: '0.9rem', 
-                    fontWeight: 600,
-                    color: isDone ? '#22c55e' : 'white',
-                    textDecoration: isDone ? 'line-through' : 'none',
-                    opacity: isDone ? 0.7 : 1
-                  }}>
-                    {obj}
-                  </span>
-                </motion.div>
+                  
+                  <AnimatePresence>
+                    {!isDone && hint && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        style={{
+                          padding: '0.8rem',
+                          marginLeft: '2rem',
+                          background: 'rgba(254, 178, 54, 0.05)',
+                          borderRadius: '8px',
+                          borderLeft: '3px solid var(--accent)',
+                          fontSize: '0.85rem',
+                          color: '#FCD34D',
+                          lineHeight: 1.4
+                        }}
+                      >
+                        {hint}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               );
             })}
           </div>
         </div>
 
-        <div style={{ marginTop: 'auto', background: 'rgba(255, 59, 63, 0.05)', padding: '1.2rem', borderRadius: '20px', border: '1px solid rgba(255, 59, 63, 0.1)' }}>
-          <h4 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem', marginBottom: '0.6rem', color: 'var(--primary)' }}>
-            <MessageSquare size={16} /> YOUR MISSION
+        <div style={{ marginTop: 'auto', padding: '1.2rem', background: 'rgba(255,255,255,0.03)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+          <h4 style={{ color: 'var(--primary)', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <MessageSquare size={14} /> Your Mission
           </h4>
-          <p style={{ fontSize: '0.85rem', lineHeight: 1.6, color: '#CBD5E1' }}>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-dim)', lineHeight: 1.5 }}>
             {scenario.goal}
           </p>
         </div>

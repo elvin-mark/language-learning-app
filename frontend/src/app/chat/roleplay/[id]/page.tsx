@@ -6,6 +6,7 @@ export async function generateStaticParams() {
     { id: 'cafe-seoul' },
     { id: 'hotel-check-in' },
     { id: 'market-haggling' },
+    { id: 'custom' },
   ];
 }
 

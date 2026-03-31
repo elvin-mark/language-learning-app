@@ -25,7 +25,18 @@ class AISystemResponse(BaseModel):
     vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words used in the AI response")
     grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns used in the AI response")
     completed_objective_indices: List[int] = Field(default_factory=list, description="The indexes of mission objectives that the student successfully completed in this turn (0-indexed)")
+    objective_hints: List[str] = Field(default_factory=list, description="Helpful hints or reasons why specific objectives were NOT met, in the same order as scenario objectives. Empty string if met or no hint needed.")
 
 class SuggestionResponse(BaseModel):
     suggestion: str = Field(description="A natural next sentence for the user in the target language")
     translation: str = Field(description="English translation of the suggestion")
+
+class ScenarioInfo(BaseModel):
+    id: str = Field(description="Slugified version of the mission name")
+    name: str = Field(description="Catchy name for the mission")
+    description: str = Field(description="Brief overview of the situation")
+    role: str = Field(description="The role the AI will play")
+    goal: str = Field(description="The main mission objective for the student")
+    objectives: List[str] = Field(description="List of 3-4 specific conversational tasks")
+    initial_message: str = Field(description="AI's opening line in the target language")
+    difficulty: str = Field(description="Beginner, Intermediate, or Advanced")

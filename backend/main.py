@@ -15,7 +15,7 @@ from backend.models import User, Word, GrammarPoint, ChatMessage
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -214,6 +214,20 @@ def get_one_scenario(scenario_id: str):
         raise HTTPException(status_code=404, detail="Scenario not found")
     return s
 
+@api_router.post("/scenarios/generate")
+async def generate_scenario(request: ScenarioGenerateRequest, current_user: User = Depends(get_current_user)):
+    try:
+        scenario_data = await ai_engine.generate_scenario(
+            request.topic, 
+            current_user.target_language,
+            llm_provider=current_user.llm_provider,
+            local_llm_url=current_user.local_llm_url
+        )
+        return scenario_data
+    except Exception as e:
+        print(f"Scenario generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate scenario")
+
 @api_router.post("/chat")
 def chat(request: ChatRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     try:
@@ -222,10 +236,12 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
         
         # Get scenario context if applicable
         scenario_data = None
-        if request.scenario_id:
-            scenario_data = scenarios.get_scenario(request.scenario_id)
-            if scenario_data:
-                scenario_data = scenario_data.dict()
+        if request.scenario_id == 'custom' and request.custom_scenario:
+            scenario_data = request.custom_scenario
+        elif request.scenario_id:
+            scenario_data_obj = scenarios.get_scenario(request.scenario_id)
+            if scenario_data_obj:
+                scenario_data = scenario_data_obj.dict()
         
         # 1. AI Generation
         ai_data = ai_engine.generate_response(
