@@ -40,3 +40,11 @@ class ScenarioInfo(BaseModel):
     objectives: List[str] = Field(description="List of 3-4 specific conversational tasks")
     initial_message: str = Field(description="AI's opening line in the target language")
     difficulty: str = Field(description="Beginner, Intermediate, or Advanced")
+
+class VariationInfo(BaseModel):
+    label: str = Field(description="The style of the variation (Formal, Casual, or Natural)")
+    text: str = Field(description="The actual text in the target language")
+    explanation: str = Field(description="Brief English explanation of the nuance")
+
+class WritingAssistantResponse(BaseModel):
+    variations: List[VariationInfo] = Field(description="A list of 3 variations of the user's intent")

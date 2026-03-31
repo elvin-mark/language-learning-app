@@ -2,7 +2,17 @@
 
 import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
-import { Send, CheckCircle, Info, Hash, Book, Sparkles, MessageCircle, ChevronLeft } from 'lucide-react';
+import { 
+  Send, 
+  Sparkles, 
+  ChevronLeft, 
+  CheckCircle, 
+  Hash, 
+  Book, 
+  MessageCircle,
+  Zap
+} from 'lucide-react';
+import WritingAssistant from '@/components/WritingAssistant';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import ExplanationOverlay from '@/components/ExplanationOverlay';
@@ -32,6 +42,7 @@ export default function StandardChatPage() {
   const [isExplaining, setIsExplaining] = useState(false);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   const [isSuggesting, setIsSuggesting] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -296,21 +307,55 @@ export default function StandardChatPage() {
             <div ref={messagesEndRef} />
           </div>
 
-          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-            <button onClick={handleSuggest} disabled={isLoading || isSuggesting} style={{ background: 'rgba(255, 255, 255, 0.05)', border: '1px solid var(--border)', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--primary)' }}>
-              <Sparkles size={20} />
-            </button>
-            <input 
-              type="text" 
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              placeholder={`Type in ${targetLanguage} or English...`}
-              style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--border)', borderRadius: '24px', padding: '0.8rem 1.5rem', color: 'white', outline: 'none' }}
+          <div style={{ padding: '1.5rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', position: 'relative' }}>
+            <WritingAssistant 
+              draftText={inputValue}
+              isOpen={showAssistant}
+              onClose={() => setShowAssistant(false)}
+              onSelect={(text) => setInputValue(text)}
             />
-            <button onClick={handleSend} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
-              <Send size={18} />
-            </button>
+            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+              <button 
+                onClick={() => setShowAssistant(!showAssistant)}
+                title="Writing Assistant"
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  color: showAssistant ? 'var(--primary)' : 'var(--text-dim)',
+                  padding: '0.4rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  opacity: (isLoading) ? 0.3 : 1
+                }}
+                disabled={isLoading}
+              >
+                <Zap size={20} />
+              </button>
+              <input 
+                type="text" 
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+                disabled={isLoading}
+                placeholder={`Type your response in ${targetLanguage}...`}
+                style={{ 
+                  flex: 1, 
+                  background: 'rgba(255,255,255,0.03)', 
+                  border: '1px solid var(--border)', 
+                  borderRadius: '24px', 
+                  padding: '1rem 1.5rem',
+                  color: 'white',
+                  outline: 'none',
+                  fontSize: '1rem'
+                }}
+              />
+              <button onClick={handleSend} style={{ background: 'var(--primary)', border: 'none', borderRadius: '50%', width: '45px', height: '45px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
+                <Send size={18} />
+              </button>
+            </div>
           </div>
         </section>
 

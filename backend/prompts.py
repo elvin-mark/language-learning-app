@@ -1,3 +1,5 @@
+from typing import Optional
+
 def get_system_prompt(target_language: str, llm_provider: str = "groq") -> str:
     prompt = f"""
     You are a helpful and expert {target_language} language teacher named Linguis. 
@@ -120,4 +122,34 @@ def get_scenario_generation_prompt(topic: str, target_language: str, llm_provide
     Please provide the scenario details including a catchy name, a role for the AI, a clear goal, and 3-4 specific objectives.
     """
     
+    return prompt
+
+def get_writing_assistant_prompt(text: str, target_language: str, scenario: Optional[dict] = None) -> str:
+    context = ""
+    if scenario:
+        context = f"The student is in a roleplay: {scenario['name']} (Goal: {scenario['goal']}). "
+    
+    prompt = f"""
+    You are a professional {target_language} writing assistant. 
+    A student has a draft or an idea they want to express in {target_language}.
+    {context}
+    
+    Draft Input: "{text}"
+    
+    Your task:
+    Generate 3 distinct variations of this idea in {target_language}.
+    
+    1. **Formal**: Use high honorifics or business tone. Suitable for bosses or elders.
+    2. **Casual**: Use informal or friendly tone. Suitable for friends or family.
+    3. **Natural**: A standard polite or daily version. This should be the modern, most common way to say it.
+    
+    For each variation:
+    - Provide the {target_language} text.
+    - Provide a brief 1-sentence English explanation of the nuance or when to use it.
+    
+    Rules:
+    1. If the input is in English, translate it naturally.
+    2. If the input is in broken {target_language}, correct it and provide variations.
+    3. Ensure the results fit the current {target_language} cultural context.
+    """
     return prompt

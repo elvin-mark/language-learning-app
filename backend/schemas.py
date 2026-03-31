@@ -11,6 +11,19 @@ class ChatRequest(BaseModel):
     scenario_id: Optional[str] = None
     custom_scenario: Optional[dict] = None
 
+class Variation(BaseModel):
+    label: str
+    text: str
+    explanation: Optional[str] = None
+
+class WritingAssistRequest(BaseModel):
+    draft_text: str
+    scenario_id: Optional[str] = None
+    chat_history: List[ChatMessageBase] = []
+
+class WritingAssistResponse(BaseModel):
+    variations: List[Variation]
+
 class UserResponse(BaseModel):
     id: int
     username: str

@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-from backend.ai_models import WordInfo, GrammarInfo, FeedbackInfo, AISystemResponse, SuggestionResponse, ScenarioInfo
+from backend.ai_models import WordInfo, GrammarInfo, FeedbackInfo, AISystemResponse, SuggestionResponse, ScenarioInfo, VariationInfo, WritingAssistantResponse
 from backend import prompts as ai_prompts
 
 class AIEngine:
@@ -228,4 +228,41 @@ class AIEngine:
                 "objectives": ["Introduce yourself", "Ask one question", "Say something positive"],
                 "initial_message": "안녕하세요! 만나서 반가워요." if target_language == "Korean" else "こんにちは！よろしくお願いします。",
                 "difficulty": "Intermediate"
+            }
+
+    async def get_writing_assistant(self, text: str, target_language: str, scenario: Optional[dict] = None,
+                                   llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+        """Generates 3 variations of a user intent (Formal, Casual, Natural)."""
+        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=WritingAssistantResponse)
+        prompt_text = ai_prompts.get_writing_assistant_prompt(text, target_language, scenario)
+        
+        try:
+            # Use ChatPromptTemplate for consistency
+            messages = [("system", prompt_text), ("human", f"Variations for: {text}")]
+            prompt = ChatPromptTemplate.from_messages(messages)
+            chain = prompt | structured_llm
+            
+            full_result = await chain.ainvoke({})
+            # Handle the include_raw=True format
+            parsed = full_result.get('parsed')
+            
+            if parsed:
+                return parsed.dict()
+            
+            # Fallback if parsing fails but content exists
+            raw = full_result.get('raw')
+            if raw and hasattr(raw, 'content'):
+                clean_json = self._clean_json_string(raw.content)
+                import json
+                parsed_dict = json.loads(clean_json)
+                return parsed_dict
+
+            raise Exception("AI failed to return valid variations")
+        except Exception as e:
+            print(f"Error getting writing assistant suggestions: {str(e)}")
+            # Minimalist fallback
+            return {
+                "variations": [
+                    {"label": "Natural", "text": text, "explanation": "Failed to generate variations. Using original."}
+                ]
             }

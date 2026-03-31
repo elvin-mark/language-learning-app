@@ -15,7 +15,7 @@ from backend.models import User, Word, GrammarPoint, ChatMessage
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -83,6 +83,39 @@ def register(username: str, password: str, session: Session = Depends(get_sessio
     session.commit()
     session.refresh(new_user)
     return {"msg": "User created successfully"}
+
+@app.post("/api/chat/assistant", response_model=WritingAssistResponse)
+async def get_writing_assistant(
+    request: WritingAssistRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_session)
+):
+    """Provides 3 writing variations for a draft message."""
+    try:
+        # Get target language from user profile
+        target_language = current_user.target_language or "Korean"
+        
+        # Get scenario context if available
+        scenario = None
+        if request.scenario_id:
+            scenario_obj = scenarios.get_scenario(request.scenario_id)
+            if scenario_obj:
+                scenario = {
+                    "name": scenario_obj.name,
+                    "goal": scenario_obj.goal
+                }
+
+        result = await ai_engine.get_writing_assistant(
+            text=request.draft_text,
+            target_language=target_language,
+            scenario=scenario,
+            llm_provider=current_user.llm_provider if hasattr(current_user, 'llm_provider') else 'groq',
+            local_llm_url=current_user.local_llm_url if hasattr(current_user, 'local_llm_url') else None
+        )
+        return result
+    except Exception as e:
+        print(f"Assistant error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.post("/token")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):

@@ -2,7 +2,18 @@
 
 import { useState, useRef, useEffect } from 'react';
 import api from '@/lib/api';
-import { Send, CheckCircle2, ChevronLeft, Target, Award as Trophy, Info, MessageSquare, Circle } from 'lucide-react';
+import WritingAssistant from '@/components/WritingAssistant';
+import { 
+  Send, 
+  CheckCircle2, 
+  ChevronLeft, 
+  Target, 
+  Award as Trophy, 
+  Info, 
+  MessageSquare, 
+  Circle,
+  Sparkles
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
@@ -35,8 +46,8 @@ export default function RoleplayClient({ id }: { id: string }) {
   const [completedObjectives, setCompletedObjectives] = useState<number[]>([]);
   const [activeHints, setActiveHints] = useState<string[]>([]);
   const [isSuccess, setIsSuccess] = useState(false);
-  
   const [isMobile, setIsMobile] = useState(false);
+  const [showAssistant, setShowAssistant] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -235,8 +246,34 @@ export default function RoleplayClient({ id }: { id: string }) {
           )}
         </section>
         
-        <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px' }}>
+        <div style={{ padding: '1rem', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.01)', borderRadius: '16px', position: 'relative' }}>
           <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <WritingAssistant 
+              draftText={inputValue}
+              isOpen={showAssistant}
+              onClose={() => setShowAssistant(false)}
+              onSelect={(text) => setInputValue(text)}
+              scenarioId={scenario.id}
+            />
+            <button 
+                onClick={() => setShowAssistant(!showAssistant)}
+                title="Writing Assistant"
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  cursor: 'pointer',
+                  color: showAssistant ? 'var(--primary)' : 'var(--text-dim)',
+                  padding: '0.4rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  opacity: (isLoading || isSuccess) ? 0.3 : 1
+                }}
+                disabled={isLoading || isSuccess}
+            >
+              <Sparkles size={20} />
+            </button>
             <input 
               type="text" 
               value={inputValue}
