@@ -6,6 +6,7 @@ class WordInfo(BaseModel):
     text: str = Field(description="The word or phrase in the target language (e.g., Korean, Japanese, Chinese)")
     meaning: str = Field(description="English translation of the word")
     pronunciation: Optional[str] = Field(None, description="Phonetic transcription (e.g., Romanization, Pinyin, Hiragana)")
+    example: Optional[str] = Field(None, description="A short example sentence using this word in the target language")
 
 class GrammarInfo(BaseModel):
     pattern: str = Field(description="The grammar pattern used (e.g., -고 싶다, -아요/어요)")

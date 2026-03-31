@@ -322,6 +322,7 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
                     text=word.text, 
                     meaning=word.meaning, 
                     pronunciation=word.pronunciation,
+                    example_sentence=word.example,
                     user_id=current_user.id,
                     language=current_user.target_language
                 ))
@@ -426,26 +427,68 @@ def get_practice_items(
         GrammarPoint.language == current_user.target_language
     )).all()
     
-    # Mix and normalize for flashcards
+    # Mix and normalize for flashcards, scrambles, and clozes
     items = []
+    
+    def generate_scramble(sentence: str):
+        if not sentence: return None
+        words = [w for w in sentence.split() if w.strip()]
+        if len(words) < 2: return None
+        shuffled = words.copy()
+        random.shuffle(shuffled)
+        return shuffled
+
+    def generate_cloze(sentence: str, target: str):
+        if not sentence or not target: return None, None
+        
+        # Clean target (remove markers like -)
+        clean_target = target.lstrip('-').strip()
+        
+        # 1. Try exact match
+        if target in sentence:
+            return sentence.replace(target, "____"), target
+        
+        # 2. Try cleaned match (especially for grammar patterns)
+        if clean_target and clean_target in sentence:
+             # Find the word containing it to replace the whole word or just the pattern?
+             # For simplicity, replace the pattern part
+             return sentence.replace(clean_target, "____"), clean_target
+             
+        return None, None
+
     for w in words:
+        scramble = generate_scramble(w.example_sentence)
+        cloze_text, cloze_ans = generate_cloze(w.example_sentence, w.text)
+        
         items.append({
             "id": w.id,
             "type": "word",
             "front": w.text,
             "back": w.meaning,
             "pronunciation": w.pronunciation,
-            "example": w.example_sentence
+            "example": w.example_sentence,
+            "scramble": scramble,
+            "cloze_text": cloze_text,
+            "cloze_answer": cloze_ans
         })
+        
     for g in grammar:
+        scramble = generate_scramble(g.example)
+        cloze_text, cloze_ans = generate_cloze(g.example, g.pattern)
+        
         items.append({
             "id": g.id,
             "type": "grammar",
             "front": g.pattern,
             "back": g.explanation,
-            "example": g.example
+            "example": g.example,
+            "scramble": scramble,
+            "cloze_text": cloze_text,
+            "cloze_answer": cloze_ans
         })
     
+    # Sort items so that items with more rich data (scrambles/clozes) come first if needed
+    # but shuffling is usually better for variety.
     random.shuffle(items)
     return items[:count]
 
