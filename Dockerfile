@@ -1,5 +1,5 @@
 # --- Stage 1: Build Frontend ---
-FROM node:18-alpine AS frontend-builder
+FROM node:20-alpine AS frontend-builder
 WORKDIR /app/frontend
 
 # Copy frontend dependency files
@@ -11,7 +11,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # --- Stage 2: Final Service ---
-FROM python:3.11-slim-buster
+FROM python:3.11-slim-trixie
 WORKDIR /app
 
 # Install system dependencies (for potential C extensions in python packages)
