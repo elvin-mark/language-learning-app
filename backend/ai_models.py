@@ -24,6 +24,7 @@ class AISystemResponse(BaseModel):
     feedback: Optional[FeedbackInfo] = Field(None, description="Analysis of the user's input if it was in the target language")
     vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words used in the AI response")
     grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns used in the AI response")
+    completed_objective_indices: List[int] = Field(default_factory=list, description="The indexes of mission objectives that the student successfully completed in this turn (0-indexed)")
 
 class SuggestionResponse(BaseModel):
     suggestion: str = Field(description="A natural next sentence for the user in the target language")

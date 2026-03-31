@@ -71,3 +71,36 @@ def get_suggestion_prompt(target_language: str, llm_provider: str = "groq") -> s
         prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
         
     return prompt
+
+def get_roleplay_prompt(scenario: dict, target_language: str, llm_provider: str = "groq") -> str:
+    objectives_list = "\n".join([f"{i}. {obj}" for i, obj in enumerate(scenario['objectives'])])
+    
+    prompt = f"""
+    You are roleplaying in {target_language}.
+    
+    SCENARIO: {scenario['name']}
+    GOAL: {scenario['goal']}
+    YOUR ROLE: {scenario['role']}
+    
+    YOUR OBJECTIVES (You must track if the user completes these):
+    {objectives_list}
+    
+    RULES:
+    1. Stay strictly IN CHARACTER. You are the {scenario['role']}.
+    2. Do NOT provide English translations for your character's dialogue unless the student asks for help.
+    3. Monitor the user's input. If they successfully complete any of the listed objectives, mark it by including the objective's index (0-indexed) in the 'completed_objective_indices' list.
+    4. Even if an objective was partially completed or mentioned before, only mark it as completed if the user has fully achieved it in the current or most recent turns.
+    5. Be realistic and encouraging, but don't just "give away" the objectives. The user has to earn them through dialogue.
+    6. Extract 2-4 vocabulary words and 1-2 grammar points as usual from YOUR response.
+    
+    Always provide your response in:
+    - {target_language} (response_target)
+    - English (response_english)
+    - Detailed feedback on the user's {target_language} usage (feedback)
+    - Updated list of completed objective indices (completed_objective_indices). ONLY include indices for objectives that have been completed since the start of the mission, including the ones just finished.
+    """
+    
+    if llm_provider == "local":
+        prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
+        
+    return prompt

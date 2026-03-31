@@ -14,6 +14,7 @@ from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
+from backend import scenarios
 from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
@@ -202,11 +203,29 @@ def get_usage(session: Session = Depends(get_session), current_user: User = Depe
     ]
     return sorted_usage
 
+@api_router.get("/scenarios")
+def get_scenarios():
+    return scenarios.get_all_scenarios()
+
+@api_router.get("/scenarios/{scenario_id}")
+def get_one_scenario(scenario_id: str):
+    s = scenarios.get_scenario(scenario_id)
+    if not s:
+        raise HTTPException(status_code=404, detail="Scenario not found")
+    return s
+
 @api_router.post("/chat")
 def chat(request: ChatRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     try:
         # Convert Pydantic history to dict for AI Engine
         history_dicts = [m.dict() for m in request.chat_history]
+        
+        # Get scenario context if applicable
+        scenario_data = None
+        if request.scenario_id:
+            scenario_data = scenarios.get_scenario(request.scenario_id)
+            if scenario_data:
+                scenario_data = scenario_data.dict()
         
         # 1. AI Generation
         ai_data = ai_engine.generate_response(
@@ -214,7 +233,8 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
             target_language=current_user.target_language,
             llm_provider=current_user.llm_provider,
             local_llm_url=current_user.local_llm_url,
-            chat_history=history_dicts
+            chat_history=history_dicts,
+            scenario=scenario_data
         )
         ai_resp: AISystemResponse = ai_data["response"]
         usage = ai_data["usage"]

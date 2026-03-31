@@ -60,10 +60,14 @@ class AIEngine:
 
     def generate_response(self, user_message: str, target_language: str = "Korean", 
                           llm_provider: str = "groq", local_llm_url: Optional[str] = None,
-                          chat_history: List[dict] = []) -> dict:
+                          chat_history: List[dict] = [], scenario: Optional[dict] = None) -> dict:
         
         structured_llm = self.get_llm(llm_provider, local_llm_url)
-        system_prompt = ai_prompts.get_system_prompt(target_language, llm_provider)
+        
+        if scenario:
+            system_prompt = ai_prompts.get_roleplay_prompt(scenario, target_language, llm_provider)
+        else:
+            system_prompt = ai_prompts.get_system_prompt(target_language, llm_provider)
 
         # Convert chat history to LangChain messages format
         messages = [("system", system_prompt)]

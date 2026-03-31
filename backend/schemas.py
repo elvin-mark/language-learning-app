@@ -8,6 +8,7 @@ class ChatMessageBase(BaseModel):
 class ChatRequest(BaseModel):
     user_message: str
     chat_history: List[ChatMessageBase] = []
+    scenario_id: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: int
