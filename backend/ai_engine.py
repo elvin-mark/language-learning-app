@@ -8,39 +8,14 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Define Structured Output Models
-class WordInfo(BaseModel):
-    text: str = Field(description="The word or phrase in the target language (e.g., Korean, Japanese, Chinese)")
-    meaning: str = Field(description="English translation of the word")
-    pronunciation: Optional[str] = Field(None, description="Phonetic transcription (e.g., Romanization, Pinyin, Hiragana)")
-
-class GrammarInfo(BaseModel):
-    pattern: str = Field(description="The grammar pattern used (e.g., -고 싶다, -아요/어요)")
-    explanation: str = Field(description="Simple explanation of how the grammar works")
-    example: str = Field(description="An example sentence using this grammar")
-
-class FeedbackInfo(BaseModel):
-    is_correct: bool = Field(description="Whether the user message is grammatically correct")
-    correction: Optional[str] = Field(None, description="Corrected version of the user sentence")
-    explanation: Optional[str] = Field(None, description="Explanation of the correction or naturalness")
-    natural_score: int = Field(description="How natural the user sentence sounds (1-10)")
-
-class AISystemResponse(BaseModel):
-    response_target: str = Field(description="The natural response to the user's message in the target language")
-    response_english: str = Field(description="The English translation of the AI response")
-    feedback: Optional[FeedbackInfo] = Field(None, description="Analysis of the user's input if it was in the target language")
-    vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words used in the AI response")
-    grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns used in the AI response")
-
-class SuggestionResponse(BaseModel):
-    suggestion: str = Field(description="A natural next sentence for the user in the target language")
-    translation: str = Field(description="English translation of the suggestion")
+from backend.ai_models import WordInfo, GrammarInfo, FeedbackInfo, AISystemResponse, SuggestionResponse
+from backend import prompts as ai_prompts
 
 class AIEngine:
     def __init__(self):
         self.groq_api_key = os.getenv("GROQ_API_KEY")
 
-    def get_llm(self, provider: str = "groq", local_url: Optional[str] = None):
+    def get_llm(self, provider: str = "groq", local_url: Optional[str] = None, output_model = AISystemResponse):
         if provider == "local" and local_url:
             llm = ChatOpenAI(
                 base_url=local_url,
@@ -51,15 +26,16 @@ class AIEngine:
                 model_name="local-model" 
             )
             # Use json_mode for local LLMs as they often don't support the latest OpenAI 'Structured Outputs' API
-            return llm.with_structured_output(AISystemResponse, method="json_mode", include_raw=True)
+            return llm.with_structured_output(output_model, method="json_mode", include_raw=True)
         else:
+            model_name = "llama-3.3-70b-versatile" if output_model == SuggestionResponse else "openai/gpt-oss-20b"
             llm = ChatGroq(
-                model="llama-3.3-70b-versatile",
+                model=model_name,
                 temperature=0.7,
                 api_key=self.groq_api_key
             )
         
-        return llm.with_structured_output(AISystemResponse, include_raw=True)
+        return llm.with_structured_output(output_model, include_raw=True)
 
     def _clean_json_string(self, text: str) -> str:
         """Helper to extract JSON from markdown-wrapped or messy LLM output."""
@@ -87,27 +63,7 @@ class AIEngine:
                           chat_history: List[dict] = []) -> dict:
         
         structured_llm = self.get_llm(llm_provider, local_llm_url)
-        system_prompt = f"""
-        You are a helpful and expert {target_language} language teacher named Linguis. 
-        The conversation is between you and a student learning {target_language}.
-        
-        Your goals:
-        1. Respond naturally to the student's message in {target_language}. Keep the conversation engaging.
-        2. If the student wrote in {target_language}, analyze their sentence for grammar, spelling, and naturalness.
-        3. If the student wrote in English, respond in {target_language} but provide an English translation.
-        4. Extract the most important vocabulary (2-4 words) and grammar points (1-2 patterns) from YOUR current response to help the student learn. 
-        5. For vocabulary, focus on nouns, verbs, and adjectives used in YOUR response.
-        6. For grammar, explain how the pattern works simply.
-        
-        Always provide:
-        - The response in both {target_language} and English.
-        - Detailed feedback if the user's input was in {target_language}.
-        - A list of words and grammar patterns used in your response.
-        - RELIABLE PRONUNCIATION GUIDES: For Chinese, provide Pinyin. For Japanese, provide Romaji/Hiragana. For Korean, provide Romanization.
-        """
-        
-        if llm_provider == "local":
-            system_prompt += "\n        CRITICAL: You must respond ONLY with a valid JSON object. Do not include any conversational filler or markdown markers like ```json."
+        system_prompt = ai_prompts.get_system_prompt(target_language, llm_provider)
 
         # Convert chat history to LangChain messages format
         messages = [("system", system_prompt)]
@@ -174,26 +130,8 @@ class AIEngine:
     def explain_snippet(self, text: str, target_language: str = "Korean", 
                        llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
         
-        structured_llm = self.get_llm(llm_provider, local_llm_url)
-        system_prompt = f"""
-        You are a helpful and expert {target_language} language teacher. 
-        A student has selected a specific snippet from a {target_language} conversation and needs an explanation.
-        
-        Snippet: "{text}"
-        
-        Your goals:
-        1. Break down the grammar patterns used in this specific snippet.
-        2. Identify and define the key vocabulary words in this snippet.
-        3. Keep explanations clear, simple, and encouraging.
-        4. Focus ONLY on the content within the provided snippet.
-        
-        Always provide:
-        - A list of grammar patterns found in the snippet.
-        - A list of vocabulary words with meanings and pronunciation (Pinyin for Chinese, Romanization for Korean/Japanese).
-        """
-        
-        if llm_provider == "local":
-            system_prompt += "\n        CRITICAL: You must respond ONLY with a valid JSON object. Do not include any conversational filler or markdown markers like ```json."
+        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=AISystemResponse)
+        system_prompt = ai_prompts.get_explanation_prompt(text, target_language, llm_provider)
 
         messages = [("system", system_prompt), ("human", f"Please explain this {target_language} snippet: {text}")]
         prompt = ChatPromptTemplate.from_messages(messages)
@@ -221,42 +159,8 @@ class AIEngine:
                        chat_history: List[dict] = []) -> dict:
         
         # Use a simpler prompt for suggestions
-        llm = self.get_llm(llm_provider, local_llm_url)
-        # Note: get_llm currently hardcodes AISystemResponse. 
-        # For suggestions, we want something simpler.
-        # Let's override it for this specific call.
-        
-        if llm_provider == "local" and local_llm_url:
-            from langchain_openai import ChatOpenAI
-            llm_simple = ChatOpenAI(
-                base_url=local_llm_url,
-                api_key="sk-not-needed",
-                temperature=0.8,
-                model_name="local-model" 
-            ).with_structured_output(SuggestionResponse, method="json_mode", include_raw=True)
-        else:
-            llm_simple = ChatGroq(
-                model="llama-3.3-70b-versatile",
-                temperature=0.8,
-                api_key=self.groq_api_key
-            ).with_structured_output(SuggestionResponse, include_raw=True)
-
-        system_prompt = f"""
-        You are a helpful {target_language} language immersion coach. 
-        The student is in the middle of a conversation and is stuck on what to say next.
-        
-        Your task:
-        Suggest ONE natural, simple, and relevant sentence the user could say to continue the conversation in {target_language}.
-        
-        Guidelines:
-        1. The suggestion must be in {target_language}.
-        2. Keep it natural but simple enough for a language learner.
-        3. Match the current context and tone of the chat.
-        4. Provide an English translation.
-        """
-        
-        if llm_provider == "local":
-            system_prompt += "\n        CRITICAL: Respond ONLY with a valid JSON object."
+        llm_simple = self.get_llm(llm_provider, local_llm_url, output_model=SuggestionResponse)
+        system_prompt = ai_prompts.get_suggestion_prompt(target_language, llm_provider)
 
         messages = [("system", system_prompt)]
         for msg in chat_history[-8:]: # Look at context

@@ -12,7 +12,8 @@ import random
 
 from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage
-from backend.ai_engine import AIEngine, AISystemResponse
+from backend.ai_engine import AIEngine
+from backend.ai_models import AISystemResponse
 from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
