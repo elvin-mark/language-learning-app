@@ -10,24 +10,29 @@ RUN npm install
 COPY frontend/ ./
 RUN npm run build
 
-# --- Stage 2: Final Service ---
-FROM python:3.11-slim-trixie
-WORKDIR /app
+# --- Stage 2: Install Backend Dependencies (Builder) ---
+FROM python:3.11-slim-trixie AS backend-builder
+WORKDIR /build
 
-# Install system dependencies (for potential C extensions in python packages)
+# Build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy backend requirements and install
-COPY backend/requirements.txt ./backend/
-RUN pip install --no-cache-dir -r ./backend/requirements.txt
+# Install requirements to a temporary directory
+COPY backend/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+# --- Stage 3: Final Runtime ---
+FROM python:3.11-slim-trixie
+WORKDIR /app
+
+# Only copy what's absolutely necessary from the builders
+COPY --from=backend-builder /install /usr/local
+COPY --from=frontend-builder /app/frontend/out ./static
 
 # Copy backend source
 COPY backend/ ./backend/
-
-# Copy built frontend from Stage 1 into backend's static folder
-COPY --from=frontend-builder /app/frontend/out ./static
 
 # Expose port and start the app
 EXPOSE 8000
