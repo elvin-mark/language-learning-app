@@ -126,28 +126,61 @@ def get_stats(session: Session = Depends(get_session), current_user: User = Depe
         GrammarPoint.language == current_user.target_language
     )).all()
     
+    # Calculate streak
+    all_user_messages = session.exec(select(ChatMessage).where(
+        ChatMessage.user_id == current_user.id,
+        ChatMessage.role == "user"
+    )).all()
+    
+    active_days = sorted(set(msg.timestamp.date() for msg in all_user_messages), reverse=True)
+    streak = 0
+    if active_days:
+        from datetime import date, timedelta
+        today = date.today()
+        yesterday = today - timedelta(days=1)
+        
+        # Streak continues if last activity was today or yesterday
+        if active_days[0] >= yesterday:
+            streak = 1
+            current_day = active_days[0]
+            for i in range(1, len(active_days)):
+                if active_days[i] == current_day - timedelta(days=1):
+                    streak += 1
+                    current_day = active_days[i]
+                else:
+                    break
+    
     return {
         "words_learned": len(total_words),
         "grammar_practiced": len(total_grammar),
+        "daily_streak": streak,
         "last_activity": datetime.now()
     }
 
 @api_router.get("/usage")
 def get_usage(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-    # Simple aggregation of tokens by date
+    # Aggregate tokens and request counts by date
+    # We count assistant messages for tokens and user messages for requests
     messages = session.exec(select(ChatMessage).where(
-        ChatMessage.user_id == current_user.id,
-        ChatMessage.role == "assistant"
+        ChatMessage.user_id == current_user.id
     )).all()
     
     usage_by_day = {}
     for msg in messages:
-        if msg.total_tokens:
-            day = msg.timestamp.strftime("%Y-%m-%d")
-            usage_by_day[day] = usage_by_day.get(day, 0) + msg.total_tokens
+        day = msg.timestamp.strftime("%Y-%m-%d")
+        if day not in usage_by_day:
+            usage_by_day[day] = {"tokens": 0, "requests": 0}
+            
+        if msg.role == "assistant" and msg.total_tokens:
+            usage_by_day[day]["tokens"] += msg.total_tokens
+        elif msg.role == "user":
+            usage_by_day[day]["requests"] += 1
             
     # Convert to sorted list of dicts for the frontend chart
-    sorted_usage = [{"date": d, "tokens": t} for d, t in sorted(usage_by_day.items())]
+    sorted_usage = [
+        {"date": d, "tokens": v["tokens"], "requests": v["requests"]} 
+        for d, v in sorted(usage_by_day.items())
+    ]
     return sorted_usage
 
 @api_router.post("/chat")

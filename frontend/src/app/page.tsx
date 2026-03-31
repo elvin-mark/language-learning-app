@@ -13,6 +13,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState({
     words_learned: 0,
     grammar_practiced: 0,
+    daily_streak: 0,
     last_activity: 'Just now'
   });
   const [usageData, setUsageData] = useState([]);
@@ -65,7 +66,7 @@ export default function Dashboard() {
         <StatCard 
           icon={<Zap size={24} />} 
           title="Daily Streak" 
-          value="5" 
+          value={stats.daily_streak} 
           subtitle="Days in a row" 
           color="#FEB236"
         />
