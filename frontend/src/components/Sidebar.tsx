@@ -12,6 +12,7 @@ import api from '@/lib/api';
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
+  { label: 'Reading', icon: BookOpen, href: '/reading' },
   { label: 'Practice', icon: Brain, href: '/practice' },
   { label: 'Library', icon: BookOpen, href: '/library' },
   { label: 'Settings', icon: Settings, href: '/settings' },

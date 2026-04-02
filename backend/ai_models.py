@@ -50,3 +50,17 @@ class VariationInfo(BaseModel):
 
 class WritingAssistantResponse(BaseModel):
     variations: List[VariationInfo] = Field(description="A list of 3 variations of the user's intent")
+
+class ReadingQuestionInfo(BaseModel):
+    question: str = Field(description="The reading comprehension question in English")
+    options: List[str] = Field(description="A list of 4 options in English")
+    correct_answer_index: int = Field(description="The 0-indexed position of the correct option")
+    explanation: str = Field(description="A brief explanation in English of why the answer is correct based on the text")
+
+class ReadingPassageInfo(BaseModel):
+    title: str = Field(description="Catchy title for the passage in the target language")
+    passage: str = Field(description="The reading passage in the target language (approx 150-300 words)")
+    translation: str = Field(description="Full English translation of the passage")
+    questions: List[ReadingQuestionInfo] = Field(description="A list of 3-5 reading comprehension questions")
+    vocabulary: List[WordInfo] = Field(default_factory=list, description="Key words from the passage")
+    grammar: List[GrammarInfo] = Field(default_factory=list, description="Key grammar patterns from the passage")

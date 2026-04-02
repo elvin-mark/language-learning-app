@@ -155,3 +155,36 @@ def get_writing_assistant_prompt(text: str, target_language: str, scenario: Opti
     3. Ensure the results fit the current {target_language} cultural context.
     """
     return prompt
+
+def get_reading_generation_prompt(topic: str, target_language: str, difficulty: str, llm_provider: str = "groq") -> str:
+    prompt = f"""
+    You are an expert language teacher specializing in reading comprehension for {target_language}.
+    
+    TASK: Generate a reading passage and a set of 3-5 multiple-choice questions based on the topic.
+    TOPIC: {topic}
+    DIFFICULTY LEVEL: {difficulty}
+    TARGET LANGUAGE: {target_language}
+    
+    The passage must be:
+    - Written entirely in {target_language}.
+    - Approximately 150-300 words long.
+    - Captivating and natural.
+    - Suitable for the "{difficulty}" level (e.g., simple for Beginner, complex for Advanced).
+    
+    The multiple-choice questions must:
+    - Be in English.
+    - Test direct facts, inference, or vocabulary in context.
+    - Have 4 plausible options each.
+    - Focus on the content within the reading passage.
+    
+    Also provide:
+    - A catchy title in {target_language}.
+    - A full English translation of the passage.
+    - 4-6 key vocabulary words with pronunciation (Pinyin for Chinese, Romanization for Korean/Japanese).
+    - 2-3 key grammar points used in the text.
+    """
+    
+    if llm_provider == "local":
+        prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
+        
+    return prompt

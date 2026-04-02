@@ -284,3 +284,33 @@ class AIEngine:
                     {"label": "Natural", "text": text, "explanation": "Failed to generate variations. Using original."}
                 ]
             }
+
+    async def generate_reading_task(self, topic: str, target_language: str, difficulty: str,
+                                   llm_type: str = "cloud", cloud_provider: str = "groq", 
+                                   local_llm_url: Optional[str] = None) -> dict:
+        """Generates a reading passage with multiple-choice questions."""
+        from backend.ai_models import ReadingPassageInfo
+        structured_llm = self.get_llm(llm_type, cloud_provider, local_llm_url, output_model=ReadingPassageInfo)
+        prompt_provider = "local" if llm_type == "local" else cloud_provider
+        prompt_text = ai_prompts.get_reading_generation_prompt(topic, target_language, difficulty, prompt_provider)
+        
+        try:
+            full_result = await structured_llm.ainvoke(prompt_text)
+            
+            # handle the include_raw=True format
+            parsed = full_result.get('parsed')
+            if parsed:
+                return parsed.dict()
+            
+            # fallback if it failed to parse correctly but we have raw content
+            raw = full_result.get('raw')
+            if raw and hasattr(raw, 'content'):
+                clean_json = self._clean_json_string(raw.content)
+                import json
+                parsed_dict = json.loads(clean_json)
+                return parsed_dict
+            
+            raise Exception("AI failed to return valid reading task")
+        except Exception as e:
+            print(f"Error generating reading task: {str(e)}")
+            raise e

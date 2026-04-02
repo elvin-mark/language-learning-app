@@ -65,3 +65,7 @@ class ExplainRequest(BaseModel):
 
 class ScenarioGenerateRequest(BaseModel):
     topic: str
+
+class ReadingGenerateRequest(BaseModel):
+    topic: str
+    difficulty: Optional[str] = "Intermediate"

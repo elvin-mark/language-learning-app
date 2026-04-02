@@ -15,7 +15,7 @@ from backend.models import User, Word, GrammarPoint, ChatMessage, Conversation
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate, ReadingGenerateRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -341,6 +341,22 @@ async def generate_scenario(request: ScenarioGenerateRequest, current_user: User
     except Exception as e:
         print(f"Scenario generation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate scenario")
+
+@api_router.post("/reading/generate")
+async def generate_reading_task(request: ReadingGenerateRequest, current_user: User = Depends(get_current_user)):
+    try:
+        reading_data = await ai_engine.generate_reading_task(
+            request.topic, 
+            current_user.target_language,
+            request.difficulty,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
+            local_llm_url=current_user.local_llm_url
+        )
+        return reading_data
+    except Exception as e:
+        print(f"Reading generation error: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to generate reading task")
 
 @api_router.post("/chat")
 def chat(request: ChatRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
