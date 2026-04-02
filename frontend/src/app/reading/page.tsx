@@ -49,6 +49,14 @@ export default function ReadingPage() {
   const [score, setScore] = useState(0);
   const [showTranslation, setShowTranslation] = useState(false);
   const [isFinished, setIsFinished] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -165,11 +173,17 @@ export default function ReadingPage() {
     const currentQuestion = task.questions[currentQuestionIndex];
     
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 400px', gap: '2rem', height: 'calc(100vh - 8rem)', alignItems: 'stretch' }}>
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 400px', 
+        gap: isMobile ? '1rem' : '2rem', 
+        height: isMobile ? 'auto' : 'calc(100vh - 8rem)', 
+        alignItems: 'stretch' 
+      }}>
         {/* Left: Reading Content */}
-        <section className="glass" style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', borderRadius: '32px' }}>
-          <div style={{ padding: '1.5rem 2.5rem', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{task.title}</h2>
+        <section className="glass" style={{ display: 'flex', flexDirection: 'column', overflow: isMobile ? 'visible' : 'hidden', borderRadius: isMobile ? '24px' : '32px' }}>
+          <div style={{ padding: isMobile ? '1rem 1.5rem' : '1.5rem 2.5rem', borderBottom: '1px solid var(--border)', display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: isMobile ? '1rem' : '0', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center' }}>
+            <h2 style={{ fontSize: isMobile ? '1.2rem' : '1.4rem', fontWeight: 800 }}>{task.title}</h2>
             <button 
               onClick={() => setShowTranslation(!showTranslation)}
               className="glass-hover"
@@ -179,7 +193,8 @@ export default function ReadingPage() {
             </button>
           </div>
           
-          <div style={{ flex: 1, overflowY: 'auto', padding: '2.5rem', lineHeight: 2, fontSize: '1.15rem' }}>
+          
+          <div style={{ flex: 1, overflowY: isMobile ? 'visible' : 'auto', padding: isMobile ? '1.5rem' : '2.5rem', lineHeight: isMobile ? 1.8 : 2, fontSize: isMobile ? '1rem' : '1.15rem' }}>
             <div style={{ whiteSpace: 'pre-wrap', color: 'white' }}>{task.passage}</div>
             
             <AnimatePresence>
@@ -198,7 +213,7 @@ export default function ReadingPage() {
         </section>
 
         {/* Right: Quiz */}
-        <aside className="glass" style={{ padding: '2rem', display: 'flex', flexDirection: 'column', borderRadius: '32px' }}>
+        <aside className="glass" style={{ padding: isMobile ? '1.5rem' : '2rem', display: 'flex', flexDirection: 'column', borderRadius: isMobile ? '24px' : '32px' }}>
           <div style={{ marginBottom: '2rem' }}>
             <div style={{ fontSize: '0.75rem', color: 'var(--primary)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: '0.5rem' }}>
               Comprehension Check • {currentQuestionIndex + 1}/{task.questions.length}
@@ -288,19 +303,19 @@ export default function ReadingPage() {
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
-      <header style={{ marginBottom: '3rem' }}>
-        <h1 className="gradient-text" style={{ fontSize: '2.5rem' }}>Reading Room</h1>
-        <p style={{ color: 'var(--subtitle)', marginTop: '0.5rem' }}>
+    <div style={{ maxWidth: '800px', margin: isMobile ? '1rem' : '2rem auto' }}>
+      <header style={{ marginBottom: isMobile ? '2rem' : '3rem' }}>
+        <h1 className="gradient-text" style={{ fontSize: isMobile ? '1.8rem' : '2.5rem' }}>Reading Room</h1>
+        <p style={{ color: 'var(--subtitle)', marginTop: '0.5rem', fontSize: isMobile ? '0.9rem' : '1rem' }}>
           Practice your comprehension with AI-generated stories and quizzes.
         </p>
       </header>
 
-      <div className="glass" style={{ padding: '3rem', borderRadius: '40px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(255, 59, 63, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem', alignItems: 'center', textAlign: 'center' }}>
+      <div className="glass" style={{ padding: isMobile ? '1.5rem' : '3rem', borderRadius: isMobile ? '30px' : '40px', border: '1px solid var(--border)', background: 'linear-gradient(135deg, rgba(255, 59, 63, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: isMobile ? '1.5rem' : '2rem', alignItems: 'center', textAlign: 'center' }}>
           <div style={{ 
-            width: '60px', 
-            height: '60px', 
+            width: isMobile ? '50px' : '60px', 
+            height: isMobile ? '50px' : '60px', 
             background: 'var(--primary)', 
             borderRadius: '50%', 
             display: 'flex', 
@@ -308,12 +323,12 @@ export default function ReadingPage() {
             justifyContent: 'center',
             boxShadow: '0 8px 20px rgba(255, 59, 63, 0.3)'
           }}>
-            <BookText size={30} color="white" />
+            <BookText size={isMobile ? 24 : 30} color="white" />
           </div>
           
           <div>
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>What do you want to read?</h2>
-            <p style={{ color: 'var(--text-dim)', maxWidth: '500px' }}>
+            <h2 style={{ fontSize: isMobile ? '1.4rem' : '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>What do you want to read?</h2>
+            <p style={{ color: 'var(--text-dim)', maxWidth: '500px', fontSize: isMobile ? '0.85rem' : '1rem' }}>
               Type a topic (e.g., "A day at the beach", "Global warming", "Technology") and our AI will create a {targetLanguage} passage for you.
             </p>
           </div>
@@ -337,19 +352,19 @@ export default function ReadingPage() {
               }}
             />
             
-            <div style={{ display: 'flex', gap: '0.8rem' }}>
+            <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', gap: '0.8rem' }}>
               {['Beginner', 'Intermediate', 'Advanced'].map((lvl) => (
                 <button
                   key={lvl}
                   onClick={() => setDifficulty(lvl)}
                   style={{
                     flex: 1,
-                    padding: '0.8rem',
+                    padding: isMobile ? '1rem' : '0.8rem',
                     borderRadius: '12px',
                     background: difficulty === lvl ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
                     border: '1px solid var(--border)',
                     color: 'white',
-                    fontSize: '0.85rem',
+                    fontSize: isMobile ? '1rem' : '0.85rem',
                     fontWeight: 700,
                     cursor: 'pointer',
                     transition: 'all 0.2s'
@@ -363,7 +378,7 @@ export default function ReadingPage() {
             <button 
               onClick={handleGenerate}
               className="primary-button" 
-              style={{ width: '100%', marginTop: '1rem', padding: '1.2rem', borderRadius: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem' }}
+              style={{ width: '100%', marginTop: '0.5rem', padding: '1.2rem', borderRadius: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', fontSize: isMobile ? '1.1rem' : '1rem' }}
             >
               <RefreshCcw size={20} /> Generate Passage
             </button>
