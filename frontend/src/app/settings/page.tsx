@@ -1,8 +1,9 @@
 'use client';
 
 import { Settings, User, Bell, Shield, Globe, HelpCircle, Brain, Server } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import Dropdown from '@/components/Dropdown';
 
 export default function SettingsPage() {
   const { user, updateUser } = useAuth();
@@ -56,24 +57,17 @@ export default function SettingsPage() {
                 <div style={{ fontWeight: 600 }}>Target Language</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Currently learning</div>
               </div>
-              <select 
-                value={user?.target_language}
-                onChange={(e) => updateUser({ target_language: e.target.value })}
-                style={{ 
-                  background: 'rgba(255,255,255,0.05)', 
-                  border: '1px solid var(--border)', 
-                  color: 'white', 
-                  padding: '0.5rem 1rem', 
-                  borderRadius: '8px',
-                  cursor: 'pointer'
-                }}
-              >
-                <option value="Korean" style={{ backgroundColor: '#1a1a1a' }}>Korean (한국어)</option>
-                <option value="Japanese" style={{ backgroundColor: '#1a1a1a' }}>Japanese (日本語)</option>
-                <option value="Chinese" style={{ backgroundColor: '#1a1a1a' }}>Chinese (中文)</option>
-                <option value="Spanish" style={{ backgroundColor: '#1a1a1a' }}>Spanish (Español)</option>
-                <option value="French" style={{ backgroundColor: '#1a1a1a' }}>French (Français)</option>
-              </select>
+              <Dropdown 
+                value={user?.target_language || ''}
+                onChange={(val) => updateUser({ target_language: val })}
+                options={[
+                  { value: 'Korean', label: 'Korean (한국어)' },
+                  { value: 'Japanese', label: 'Japanese (日本語)' },
+                  { value: 'Chinese', label: 'Chinese (中文)' },
+                  { value: 'Spanish', label: 'Spanish (Español)' },
+                  { value: 'French', label: 'French (Français)' }
+                ]}
+              />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -81,20 +75,15 @@ export default function SettingsPage() {
                 <div style={{ fontWeight: 600 }}>Target Level</div>
                 <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Adjusts AI difficulty</div>
               </div>
-              <select 
-                defaultValue="2"
-                style={{ 
-                  background: 'rgba(255,255,255,0.05)', 
-                  border: '1px solid var(--border)', 
-                  color: 'white', 
-                  padding: '0.5rem 1rem', 
-                  borderRadius: '8px' 
-                }}
-              >
-                <option value="1">Beginner (1)</option>
-                <option value="2">Intermediate (2)</option>
-                <option value="3">Advanced (3)</option>
-              </select>
+              <Dropdown 
+                value="2"
+                onChange={() => {}} // Not yet implemented in backend
+                options={[
+                  { value: '1', label: 'Beginner (1)' },
+                  { value: '2', label: 'Intermediate (2)' },
+                  { value: '3', label: 'Advanced (3)' }
+                ]}
+              />
             </div>
           </div>
         </section>

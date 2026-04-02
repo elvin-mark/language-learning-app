@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { Book, MessageSquare, Info, Star, Search, ChevronLeft, ChevronRight } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
+import Dropdown from '@/components/Dropdown';
 
 const PAGE_SIZE = 9;
 
@@ -16,6 +17,7 @@ export default function LibraryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [sortOrder, setSortOrder] = useState<'latest' | 'mastery_asc' | 'mastery_desc'>('latest');
   const [isLoading, setIsLoading] = useState(false);
   
   const targetLanguage = user?.target_language || 'Language';
@@ -43,7 +45,8 @@ export default function LibraryPage() {
           params: {
             page,
             size: PAGE_SIZE,
-            search: debouncedSearch || undefined
+            search: debouncedSearch || undefined,
+            sort_by: sortOrder
           }
         });
         setItems(response.data.items);
@@ -55,7 +58,7 @@ export default function LibraryPage() {
       }
     };
     fetchData();
-  }, [page, debouncedSearch, activeTab]);
+  }, [page, debouncedSearch, activeTab, sortOrder]);
 
   const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 
@@ -68,26 +71,37 @@ export default function LibraryPage() {
         </p>
       </header>
 
-      {/* Search Bar */}
-      <div style={{ position: 'relative', marginBottom: '2rem' }}>
-        <Search size={20} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
-        <input 
-          type="text" 
-          placeholder={`Search ${activeTab}...`}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="glass"
-          style={{
-            width: '100%',
-            padding: '1rem 1rem 1rem 3.2rem',
-            background: 'rgba(255,255,255,0.03)',
-            borderRadius: '15px',
-            color: 'white',
-            outline: 'none',
-            fontSize: '1rem'
-          }}
-        />
-      </div>
+      <div style={{ display: 'flex', gap: '1rem', width: '100%', marginBottom: '2rem' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            <Search size={20} style={{ position: 'absolute', left: '1.2rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-dim)' }} />
+            <input 
+              type="text" 
+              placeholder={`Search ${activeTab}...`}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="glass"
+              style={{
+                width: '100%',
+                padding: '1rem 1rem 1rem 3.2rem',
+                background: 'rgba(255,255,255,0.03)',
+                borderRadius: '15px',
+                color: 'white',
+                outline: 'none',
+                fontSize: '1rem',
+                border: '1px solid var(--border)'
+              }}
+            />
+          </div>
+          <Dropdown 
+            value={sortOrder}
+            onChange={(val) => setSortOrder(val as any)}
+            options={[
+              { value: 'latest', label: 'Latest' },
+              { value: 'mastery_asc', label: 'Lowest Mastery' },
+              { value: 'mastery_desc', label: 'Highest Mastery' }
+            ]}
+          />
+        </div>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: '2rem', marginBottom: '2rem', borderBottom: '1px solid var(--border)' }}>
@@ -202,7 +216,7 @@ function LibraryItem({ title, subtitle, extra, level, icon, isGrammar }: any) {
         }}>
           {icon}
         </div>
-        {!isGrammar && level !== undefined && (
+        {level !== undefined && (
           <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-dim)' }}>
             Mastery: {level}%
           </div>

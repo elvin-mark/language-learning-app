@@ -35,6 +35,7 @@ interface Scenario {
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  feedback?: any;
   completed_indices?: number[];
   hints?: string[];
   suggestions?: any[];
@@ -104,6 +105,7 @@ export default function RoleplayClient({ id }: { id: string }) {
           const mappedMessages = msgsRes.data.map((m: any) => ({
             role: m.role,
             content: m.content,
+            feedback: m.feedback ? JSON.parse(m.feedback) : null,
             completed_indices: m.grammar_used ? JSON.parse(m.grammar_used).map((g: any) => g.id) : [] // Rough mapping for now
           }));
           setMessages(mappedMessages);
@@ -194,15 +196,24 @@ export default function RoleplayClient({ id }: { id: string }) {
         setActiveHints(aiData.objective_hints);
       }
       
-      const aiMsg: Message = {
-        role: 'assistant',
-        content: aiData.response_target,
-        completed_indices: aiData.completed_objective_indices,
-        hints: aiData.objective_hints,
-        suggestions: aiData.suggestions
-      };
-      
-      setMessages(prev => [...prev, aiMsg]);
+      // Update the user message we just sent with feedback
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastUserIdx = [...newMessages].reverse().findIndex(m => m.role === 'user');
+        if (lastUserIdx !== -1) {
+          const idx = newMessages.length - 1 - lastUserIdx;
+          newMessages[idx] = { ...newMessages[idx], feedback: aiData.feedback };
+        }
+        
+        const aiMsg: Message = {
+          role: 'assistant',
+          content: aiData.response_target,
+          completed_indices: aiData.completed_objective_indices,
+          hints: aiData.objective_hints,
+          suggestions: aiData.suggestions
+        };
+        return [...newMessages, aiMsg];
+      });
     } catch (err) {
       console.error('Chat error:', err);
     } finally {
@@ -212,7 +223,8 @@ export default function RoleplayClient({ id }: { id: string }) {
 
   if (!scenario) return <div className="loader"></div>;
 
-    const lastAssistantMessage = messages.findLast(m => m.role === 'assistant');
+    const lastAssistantMessage = messages.findLast ? messages.findLast(m => m.role === 'assistant') : [...messages].reverse().find(m => m.role === 'assistant');
+    const latestFeedback = messages.findLast ? messages.findLast(m => m.role === 'user' && m.feedback)?.feedback : [...messages].reverse().find(m => m.role === 'user' && m.feedback)?.feedback;
 
     return (
     <div style={{ 
@@ -220,7 +232,7 @@ export default function RoleplayClient({ id }: { id: string }) {
       margin: '0 auto', 
       height: isMobile ? 'auto' : 'calc(100vh - 6.5rem)', 
       display: 'grid', 
-      gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 260px', 
+      gridTemplateColumns: isMobile ? '1fr' : 'minmax(0, 1fr) 320px', 
       gap: '2rem', 
       padding: '1rem',
       overflow: isMobile ? 'visible' : 'hidden'
@@ -392,6 +404,29 @@ export default function RoleplayClient({ id }: { id: string }) {
           <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '1.5rem', fontSize: '1.2rem' }}>
             <Target size={20} color="var(--primary)" /> Objectives
           </h3>
+          
+          {latestFeedback && (
+            <motion.div 
+              initial={{ opacity: 0, y: -10 }} 
+              animate={{ opacity: 1, y: 0 }}
+              style={{ background: 'rgba(255,255,255,0.03)', padding: '1rem', borderRadius: '16px', border: '1px solid var(--border)', marginBottom: '1.5rem' }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.8rem', color: 'var(--primary)', fontWeight: 700, fontSize: '0.9rem' }}>
+                <CheckCircle2 size={16} /> AI FEEDBACK
+              </div>
+              <div style={{ marginBottom: '0.5rem', fontWeight: 600, color: latestFeedback.is_correct ? '#22c55e' : '#ef4444' }}>
+                {latestFeedback.is_correct ? 'Great Job!' : 'Correction needed'}
+              </div>
+              {latestFeedback.correction && (
+                <div style={{ fontSize: '0.85rem', marginBottom: '0.8rem' }}>
+                  <span style={{ color: 'var(--text-dim)' }}>Corrected: </span>
+                  <span style={{ color: '#FCD34D' }}>{latestFeedback.correction}</span>
+                </div>
+              )}
+              <p style={{ fontSize: '0.8rem', lineHeight: '1.5', color: '#CBD5E1' }}>{latestFeedback.explanation}</p>
+            </motion.div>
+          )}
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {scenario.objectives.map((obj, i) => {
               const isDone = completedObjectives.includes(i);

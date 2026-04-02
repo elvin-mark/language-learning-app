@@ -129,7 +129,21 @@ export default function PracticePage() {
     }
   };
 
-  const nextCard = () => {
+  const nextCard = async () => {
+    // Increment mastery if correct (or if flashcard just viewed)
+    if (feedback === 'correct' || currentMode === 'flashcard') {
+      try {
+        await api.post('/practice/mastery', null, {
+          params: {
+            item_id: currentItem.id,
+            item_type: currentItem.type
+          }
+        });
+      } catch (err) {
+        console.error('Failed to update mastery:', err);
+      }
+    }
+
     if (currentIndex < items.length - 1) {
       const nextIdx = currentIndex + 1;
       setCurrentIndex(nextIdx);

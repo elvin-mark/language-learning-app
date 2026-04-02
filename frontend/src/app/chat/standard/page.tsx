@@ -153,16 +153,24 @@ export default function StandardChatPage() {
         router.replace(`/chat/standard?id=${aiResp.conversation_id}`);
       }
 
-      const aiMessage: Message = { 
-        role: 'assistant', 
-        content: aiResp.response_target,
-        feedback: aiResp.feedback,
-        grammar: aiResp.grammar,
-        vocabulary: aiResp.vocabulary,
-        suggestions: aiResp.suggestions
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
+      // Update the user message we just sent with feedback
+      setMessages(prev => {
+        const newMessages = [...prev];
+        const lastUserIdx = [...newMessages].reverse().findIndex(m => m.role === 'user');
+        if (lastUserIdx !== -1) {
+          const idx = newMessages.length - 1 - lastUserIdx;
+          newMessages[idx] = { ...newMessages[idx], feedback: aiResp.feedback };
+        }
+        
+        const aiMessage: Message = { 
+          role: 'assistant', 
+          content: aiResp.response_target,
+          grammar: aiResp.grammar,
+          vocabulary: aiResp.vocabulary,
+          suggestions: aiResp.suggestions
+        };
+        return [...newMessages, aiMessage];
+      });
     } catch (err) {
       console.error('Chat error:', err);
     } finally {

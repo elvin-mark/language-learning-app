@@ -32,6 +32,7 @@ class GrammarPoint(SQLModel, table=True):
     example: str
     usage_notes: Optional[str] = None
     last_practiced: datetime = Field(default_factory=datetime.utcnow)
+    mastery_level: int = Field(default=0)  # 0 to 100
 
 class Conversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from sqlmodel import Session, select, func, or_
+from sqlmodel import Session, select, func, or_, desc, asc
 from typing import List, Optional
 from datetime import datetime
 import json
@@ -33,7 +33,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Initialize AI Engine (needs GROQ_API_KEY)
+@app.on_event("startup")
+def on_startup():
+    create_db_and_tables()
+
+# Initialize AI Engine (needs GROQ_API_KEY or GOOGLE_API_KEY)
 ai_engine = AIEngine()
 
 async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
@@ -452,6 +456,7 @@ def get_vocabulary(
     page: int = 1, 
     size: int = 10, 
     search: Optional[str] = None,
+    sort_by: Optional[str] = "latest",  # "latest", "mastery_asc", "mastery_desc"
     session: Session = Depends(get_session), 
     current_user: User = Depends(get_current_user)
 ):
@@ -466,6 +471,14 @@ def get_vocabulary(
             Word.text.like(search_filter),
             Word.meaning.like(search_filter)
         ))
+
+    # Apply Sorting
+    if sort_by == "mastery_asc":
+        query = query.order_by(asc(Word.mastery_level))
+    elif sort_by == "mastery_desc":
+        query = query.order_by(desc(Word.mastery_level))
+    else: # Default or latest
+        query = query.order_by(desc(Word.id))
     
     # Get total count for pagination
     total = session.exec(select(func.count()).select_from(query.subquery())).one()
@@ -480,6 +493,7 @@ def get_grammar(
     page: int = 1, 
     size: int = 10, 
     search: Optional[str] = None,
+    sort_by: Optional[str] = "latest", # "latest", "mastery_asc", "mastery_desc"
     session: Session = Depends(get_session), 
     current_user: User = Depends(get_current_user)
 ):
@@ -495,6 +509,14 @@ def get_grammar(
             GrammarPoint.explanation.like(search_filter)
         ))
         
+    # Apply Sorting
+    if sort_by == "mastery_asc":
+        query = query.order_by(asc(GrammarPoint.mastery_level))
+    elif sort_by == "mastery_desc":
+        query = query.order_by(desc(GrammarPoint.mastery_level))
+    else: # Default or latest
+        query = query.order_by(desc(GrammarPoint.id))
+
     total = session.exec(select(func.count()).select_from(query.subquery())).one()
     items = session.exec(query.offset((page - 1) * size).limit(size)).all()
     
@@ -506,15 +528,16 @@ def get_practice_items(
     session: Session = Depends(get_session), 
     current_user: User = Depends(get_current_user)
 ):
+    # Fetch more than needed items, then sort by mastery (asc) to prioritize unlearned items
     words = session.exec(select(Word).where(
         Word.user_id == current_user.id,
         Word.language == current_user.target_language
-    )).all()
+    ).order_by(asc(Word.mastery_level)).limit(count * 2)).all()
     
     grammar = session.exec(select(GrammarPoint).where(
         GrammarPoint.user_id == current_user.id,
         GrammarPoint.language == current_user.target_language
-    )).all()
+    ).order_by(asc(GrammarPoint.mastery_level)).limit(count)).all()
     
     # Mix and normalize for flashcards, scrambles, and clozes
     items = []
@@ -576,10 +599,30 @@ def get_practice_items(
             "cloze_answer": cloze_ans
         })
     
-    # Sort items so that items with more rich data (scrambles/clozes) come first if needed
-    # but shuffling is usually better for variety.
+    # Shuffle the top candidate pool to provide variety but keeping the trend of low mastery
     random.shuffle(items)
     return items[:count]
+
+@api_router.post("/practice/mastery")
+def update_mastery(
+    item_id: int, 
+    item_type: str, # "word" or "grammar"
+    session: Session = Depends(get_session), 
+    current_user: User = Depends(get_current_user)
+):
+    if item_type == "word":
+        item = session.get(Word, item_id)
+    else:
+        item = session.get(GrammarPoint, item_id)
+        
+    if not item or item.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Item not found")
+        
+    item.mastery_level = min(100, item.mastery_level + 10)
+    item.last_practiced = datetime.now()
+    session.add(item)
+    session.commit()
+    return {"status": "success", "new_mastery": item.mastery_level}
 
 # Include the API router
 app.include_router(api_router)
