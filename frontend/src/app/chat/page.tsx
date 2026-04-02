@@ -1,11 +1,11 @@
 'use client';
 
-import { 
-  MessageCircle, 
-  Target, 
-  Sparkles, 
-  ChevronRight, 
-  BookOpen, 
+import {
+  MessageCircle,
+  Target,
+  Sparkles,
+  ChevronRight,
+  BookOpen,
   CheckCircle2,
   Trophy,
   Clock,
@@ -33,7 +33,7 @@ export default function ChatHubPage() {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     const fetchHistory = async () => {
       try {
         const response = await api.get('/conversations');
@@ -52,7 +52,7 @@ export default function ChatHubPage() {
   const handleDeleteConversation = async (e: React.MouseEvent, id: number) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!confirm('Are you sure you want to delete this chat?')) return;
 
     try {
@@ -63,7 +63,7 @@ export default function ChatHubPage() {
       alert('Failed to delete conversation. Please try again.');
     }
   };
-  
+
   const handleEditClick = (e: React.MouseEvent, id: number, currentTitle: string) => {
     e.preventDefault();
     e.stopPropagation();
@@ -80,7 +80,7 @@ export default function ChatHubPage() {
   const handleSaveTitle = async (e: React.MouseEvent | React.KeyboardEvent, id: number) => {
     e.preventDefault();
     e.stopPropagation();
-    
+
     if (!editTitle.trim()) return;
 
     try {
@@ -95,9 +95,9 @@ export default function ChatHubPage() {
   };
 
   return (
-    <div style={{ 
-      maxWidth: '1000px', 
-      margin: '0 auto', 
+    <div style={{
+      maxWidth: '1000px',
+      margin: '0 auto',
       padding: isMobile ? '1rem' : '2rem 1rem',
       display: 'flex',
       flexDirection: 'column',
@@ -105,17 +105,17 @@ export default function ChatHubPage() {
       gap: isMobile ? '2rem' : '3rem'
     }}>
       <div style={{ textAlign: 'center' }}>
-        <h1 className="gradient-text" style={{ 
-          fontSize: isMobile ? '2.2rem' : '3rem', 
-          fontWeight: 900, 
+        <h1 className="gradient-text" style={{
+          fontSize: isMobile ? '2.2rem' : '3rem',
+          fontWeight: 900,
           marginBottom: '0.8rem',
           lineHeight: 1.1
         }}>
           Language Lab
         </h1>
-        <p style={{ 
-          color: 'var(--subtitle)', 
-          fontSize: isMobile ? '1rem' : '1.2rem', 
+        <p style={{
+          color: 'var(--subtitle)',
+          fontSize: isMobile ? '1rem' : '1.2rem',
           maxWidth: '600px',
           padding: '0 1rem'
         }}>
@@ -123,9 +123,9 @@ export default function ChatHubPage() {
         </p>
       </div>
 
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))', 
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))',
         gap: '1.5rem',
         width: '100%'
       }}>
@@ -134,8 +134,8 @@ export default function ChatHubPage() {
           <motion.div
             whileHover={isMobile ? {} : { y: -8, scale: 1.02 }}
             className="glass"
-            style={{ 
-              padding: isMobile ? '1.5rem' : '2.5rem', 
+            style={{
+              padding: isMobile ? '1.5rem' : '2.5rem',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
@@ -147,19 +147,19 @@ export default function ChatHubPage() {
               overflow: 'hidden'
             }}
           >
-            <div style={{ 
-              width: '50px', 
-              height: '50px', 
-              borderRadius: '16px', 
-              background: 'var(--primary)', 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '16px',
+              background: 'var(--primary)',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 8px 20px rgba(255, 59, 63, 0.3)'
             }}>
               <MessageCircle size={28} color="white" />
             </div>
-            
+
             <div>
               <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>Free Conversation</h2>
               <p style={{ color: 'var(--subtitle)', lineHeight: 1.5, fontSize: isMobile ? '0.95rem' : '1rem' }}>
@@ -187,8 +187,8 @@ export default function ChatHubPage() {
           <motion.div
             whileHover={isMobile ? {} : { y: -8, scale: 1.02 }}
             className="glass"
-            style={{ 
-              padding: isMobile ? '1.5rem' : '2.5rem', 
+            style={{
+              padding: isMobile ? '1.5rem' : '2.5rem',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
@@ -198,19 +198,19 @@ export default function ChatHubPage() {
               cursor: 'pointer'
             }}
           >
-            <div style={{ 
-              width: '50px', 
-              height: '50px', 
-              borderRadius: '16px', 
-              background: '#6B5B95', 
-              display: 'flex', 
-              alignItems: 'center', 
+            <div style={{
+              width: '50px',
+              height: '50px',
+              borderRadius: '16px',
+              background: '#6B5B95',
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'center',
               boxShadow: '0 8px 20px rgba(107, 91, 149, 0.3)'
             }}>
               <Target size={28} color="white" />
             </div>
-            
+
             <div>
               <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>Guided Missions</h2>
               <p style={{ color: 'var(--subtitle)', lineHeight: 1.5, fontSize: isMobile ? '0.95rem' : '1rem' }}>
@@ -236,7 +236,7 @@ export default function ChatHubPage() {
 
       {/* Recent History Section */}
       {!isLoadingHistory && recentConversations.length > 0 && (
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           style={{ width: '100%', marginTop: '1rem' }}
@@ -247,15 +247,15 @@ export default function ChatHubPage() {
             </div>
             <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Continue Your Progress</h2>
           </div>
-          
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', 
-            gap: '1rem' 
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))',
+            gap: '1rem'
           }}>
             {recentConversations.map((conv) => (
-              <Link 
-                key={conv.id} 
+              <Link
+                key={conv.id}
                 href={conv.scenario_id ? `/chat/roleplay/${conv.scenario_id}?id=${conv.id}` : `/chat/standard?id=${conv.id}`}
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
@@ -319,7 +319,7 @@ export default function ChatHubPage() {
 
                   {editingId === conv.id ? (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
-                      <input 
+                      <input
                         autoFocus
                         value={editTitle}
                         onChange={(e) => setEditTitle(e.target.value)}
@@ -336,13 +336,13 @@ export default function ChatHubPage() {
                           outline: 'none'
                         }}
                       />
-                      <button 
+                      <button
                         onClick={(e) => handleSaveTitle(e, conv.id)}
                         style={{ background: 'var(--primary)', border: 'none', borderRadius: '8px', padding: '0.4rem', color: 'white', cursor: 'pointer', display: 'flex' }}
                       >
                         <Check size={14} />
                       </button>
-                      <button 
+                      <button
                         onClick={handleCancelEdit}
                         style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '0.4rem', color: 'white', cursor: 'pointer', display: 'flex' }}
                       >
@@ -352,7 +352,7 @@ export default function ChatHubPage() {
                   ) : (
                     <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'white' }}>{conv.title}</h3>
                   )}
-                  
+
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
                     Resume session <ArrowRight size={12} />
                   </div>
@@ -363,26 +363,26 @@ export default function ChatHubPage() {
         </motion.div>
       )}
 
-      <div style={{ 
-        background: 'rgba(255,255,255,0.02)', 
-        padding: isMobile ? '1.5rem' : '1.5rem 3rem', 
-        borderRadius: isMobile ? '24px' : '40px', 
-        border: '1px solid var(--border)', 
-        display: 'flex', 
+      <div style={{
+        background: 'rgba(255,255,255,0.02)',
+        padding: isMobile ? '1.5rem' : '1.5rem 3rem',
+        borderRadius: isMobile ? '24px' : '40px',
+        border: '1px solid var(--border)',
+        display: 'flex',
         flexDirection: isMobile ? 'column' : 'row',
         gap: isMobile ? '1.5rem' : '3rem',
         width: isMobile ? '100%' : 'auto',
         alignItems: 'center'
       }}>
-         <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>AI Core</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>POWERED BY GROQ</div>
-         </div>
-         { !isMobile && <div style={{ borderLeft: '1px solid var(--border)', height: '40px' }}></div> }
-         <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>10+ Scenarios</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>REAL-WORLD TOPICS</div>
-         </div>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>AI Core</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>POWERED BY LLMs</div>
+        </div>
+        {!isMobile && <div style={{ borderLeft: '1px solid var(--border)', height: '40px' }}></div>}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>10+ Scenarios</div>
+          <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>REAL-WORLD TOPICS</div>
+        </div>
       </div>
     </div>
   );
