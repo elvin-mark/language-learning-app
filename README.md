@@ -1,86 +1,71 @@
-# Linguis - AI Powered Language Learning 🇰🇷
+# Linguis - AI Powered Language Learning 🌍✨
 
-Experience a modern way to master Korean with real-time AI feedback, grammar tracking, and flexible LLM support (Cloud or Local).
+Linguis is a high-performance, immersive language learning platform that leverages state-of-the-art AI (Groq, Gemini, or Local LLMs) to provide real-time feedback, dynamic reading practice, and automated progress tracking. 
 
-![Linguis Dashboard](https://raw.githubusercontent.com/elvin-mark/language-learning-app/main/frontend/public/dashboard-preview.png) *(Placeholder for your preview image)*
+Built with **Next.js**, **FastAPI**, and **LangChain**, Linguis offers a premium, glassmorphic experience designed for focused study.
 
-## ✨ Features
+---
 
-- **Hybrid LLM Support**: Switch between **Groq (Cloud)** for speed or **Local LLMs (Ollama/LM Studio)** for privacy and offline use.
-- **Real-time Feedback**: Get instant analysis of your Korean sentences, including grammar corrections and natural alternatives.
-- **Smart Library**: Automatically tracks words and grammar patterns encountered during conversations, with built-in **search and pagination**.
-- **Token Analytics**: Monitor your AI consumption with beautiful, interactive charts directly on your dashboard.
-- **Premium UI**: Dark-mode glassmorphic design built with Next.js, Framer Motion, and Lucide icons.
+## ✨ Key Features
+
+### 📖 NEW: AI Reading Room
+Sharpen your comprehension with dynamically generated reading passages. 
+- **Topic-on-Demand**: Prompt the AI with any topic (e.g., "A walk in Kyoto", "Global news") to get a tailored article.
+- **Interactive Quizzes**: Test your understanding with AI-generated MCQs featuring immediate feedback and detailed explanations.
+- **Translation Engine**: Toggle between your target language and English instantly.
+
+### 📈 Mastery Tracking & Smart Library
+- **Proficiency Scoring**: Vocabulary and grammar points automatically track your "Mastery Level" (0-100%) based on active practice.
+- **Smart Sorting**: Prioritize your studies by sorting your library by "Lowest Mastery" to focus on your weakest areas.
+- **Automated Logging**: The system extracts and saves key words and patterns from every conversation you have.
+
+### 🎭 Immersive Roleplay Missions
+- **10+ Pre-made Scenarios**: Practice in realistic situations like ordering coffee, checking into a hotel, or a business meeting.
+- **Objective Tracking**: Real-time monitoring of mission goals; the AI recognizes and rewards your progress.
+- **Dedicated Feedback Pane**: A specialized sidebar to view grammatical corrections and natural alternatives without interrupting the flow.
+
+### 💬 Advanced Conversation Hub
+- **Editable History**: Keep your workspace organized by renaming chats with custom titles and deleting old sessions.
+- **Writing Assistant**: Get three stylistic variations (Formal, Casual, Natural) for any sentence you want to write.
+- **Suggesting Engine**: Stuck? Get 4 contextual suggestions for what to say next.
+
+### ⚙️ Hybrid LLM Infrastructure
+- **Cloud-Fast**: Integration with **Groq (Llama 3)** and **Gemini** for lightning-fast, high-quality responses.
+- **Local-Private**: Full support for **Ollama**, **LM Studio**, or any OpenAI-compatible local API for maximum privacy and offline use.
 
 ---
 
 ## 🚀 Quick Start (Docker)
 
-The fastest way to run Linguis as a unified service (Frontend + Backend):
+The fastest way to run Linguis as a unified service:
 
-1. **Clone the repo**:
+1. **Clone & Enter**:
    ```bash
    git clone https://github.com/elvin-mark/language-learning-app.git
    cd language-learning-app
    ```
-2. **Build the image**:
+2. **Setup Keys**: Create a `.env` file in the root with your keys:
+   ```env
+   GROQ_API_KEY=your_key_here
+   GOOGLE_API_KEY=optional_gemini_key
+   ```
+3. **Build & Run**:
    ```bash
    docker build -t linguis .
+   docker run -p 8000:8000 --env-file .env linguis
    ```
-3. **Run the container**:
-   ```bash
-   docker run -p 8000:8000 -e GROQ_API_KEY=your_key_here linguis
-   ```
-4. **Access the app**: Visit `http://localhost:8000`
+4. **Learn**: Visit `http://localhost:8000`
 
 ---
 
-## 🛠️ Development Setup
+## 🛠️ Technical Stack
 
-If you want to run the components separately for development:
-
-### Prerequisites
-- Python 3.10+
-- Node.js 18+
-- Groq API Key (get one at [console.groq.com](https://console.groq.com))
-
-### Backend Setup
-1. Navigate to `/` (Root)
-2. Create and activate a virtual environment:
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-3. Install dependencies:
-   ```bash
-   pip install -r backend/requirements.txt
-   ```
-4. Set environment variables:
-   ```bash
-   export GROQ_API_KEY=your_key_here  # Or create a .env file in the root
-   ```
-5. Run the server:
-   ```bash
-   uvicorn backend.main:app --reload --port 8000
-   ```
-
-### Frontend Setup
-1. Navigate to `frontend/`
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the development server:
-   ```bash
-   npm run dev
-   ```
-4. Visit `http://localhost:3000` (It will proxy API calls to port 8000 automatically).
-
----
-
-## 🏗️ Architecture
-
-- **Frontend**: Next.js 16 (App Router), TypeScript, Framer Motion, Axios.
+- **Frontend**: Next.js 14+ (App Router), TypeScript, Framer Motion, Lucide Icons.
 - **Backend**: FastAPI, SQLModel (SQLAlchemy + Pydantic), LangChain.
-- **Database**: SQLite (default), manageable via `language_app.db`.
-- **AI**: Optimized for Groq (Llama 3) and Local OpenAI-compatible APIs.
+- **Intelligence**: Multi-provider support via LangChain (Groq, Google GenAI, Ollama).
+- **Database**: SQLite with automated schema migrations on startup.
+- **UI/UX**: Custom glassmorphism design system with responsive layouts and smart language indicators.
+
+---
+
+*Linguis - Master any language, one AI-powered conversation at a time.*
