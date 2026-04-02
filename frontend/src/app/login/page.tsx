@@ -33,6 +33,8 @@ export default function LoginPage() {
           response.data.access_token,
           response.data.username,
           response.data.target_language,
+          response.data.llm_type,
+          response.data.cloud_provider,
           response.data.llm_provider,
           response.data.local_llm_url
         );

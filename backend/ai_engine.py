@@ -15,22 +15,29 @@ class AIEngine:
     def __init__(self):
         self.groq_api_key = os.getenv("GROQ_API_KEY")
 
-    def get_llm(self, provider: str = "groq", local_url: Optional[str] = None, output_model = AISystemResponse):
-        if provider == "local" and local_url:
+    def get_llm(self, llm_type: str = "cloud", cloud_provider: str = "groq", 
+                local_url: Optional[str] = None, output_model = AISystemResponse):
+        
+        if llm_type == "local" and local_url:
             llm = ChatOpenAI(
                 base_url=local_url,
-                api_key="sk-not-needed", # Local servers usually don't need real keys
+                api_key="sk-not-needed",
                 temperature=0.7,
-                # Note: Local model name depends on the server (e.g. 'llama3', 'mistral')
-                # Many servers just use 'model' or 'default'
                 model_name="local-model" 
             )
-            # Use json_mode for local LLMs as they often don't support the latest OpenAI 'Structured Outputs' API
             return llm.with_structured_output(output_model, method="json_mode", include_raw=True)
-        else:
-            model_name = "llama-3.3-70b-versatile"
+        
+        # Cloud Providers
+        if cloud_provider == "gemini":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash",
+                temperature=0.7,
+                google_api_key=os.getenv("GOOGLE_API_KEY")
+            )
+        else: # Default to Groq
             llm = ChatGroq(
-                model=model_name,
+                model="llama-3.3-70b-versatile",
                 temperature=0.7,
                 api_key=self.groq_api_key
             )
@@ -59,15 +66,19 @@ class AIEngine:
         return text
 
     def generate_response(self, user_message: str, target_language: str = "Korean", 
-                          llm_provider: str = "groq", local_llm_url: Optional[str] = None,
+                          llm_type: str = "cloud", cloud_provider: str = "groq", 
+                          local_llm_url: Optional[str] = None,
                           chat_history: List[dict] = [], scenario: Optional[dict] = None) -> dict:
         
-        structured_llm = self.get_llm(llm_provider, local_llm_url)
+        structured_llm = self.get_llm(llm_type, cloud_provider, local_llm_url)
+        
+        # Determine provider for prompt constraints
+        prompt_provider = "local" if llm_type == "local" else cloud_provider
         
         if scenario:
-            system_prompt = ai_prompts.get_roleplay_prompt(scenario, target_language, llm_provider)
+            system_prompt = ai_prompts.get_roleplay_prompt(scenario, target_language, prompt_provider)
         else:
-            system_prompt = ai_prompts.get_system_prompt(target_language, llm_provider)
+            system_prompt = ai_prompts.get_system_prompt(target_language, prompt_provider)
 
         # Convert chat history to LangChain messages format
         messages = [("system", system_prompt)]
@@ -104,7 +115,7 @@ class AIEngine:
         except Exception as e:
             print(f"Error generating AI response: {str(e)}")
             # Fallback for local providers if structured output fails
-            if llm_provider == "local":
+            if llm_type == "local":
                 raw_llm = ChatOpenAI(
                     base_url=local_llm_url,
                     api_key="sk-not-needed",
@@ -132,10 +143,12 @@ class AIEngine:
             
             raise e
     def explain_snippet(self, text: str, target_language: str = "Korean", 
-                       llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+                       llm_type: str = "cloud", cloud_provider: str = "groq", 
+                       local_llm_url: Optional[str] = None) -> dict:
         
-        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=AISystemResponse)
-        system_prompt = ai_prompts.get_explanation_prompt(text, target_language, llm_provider)
+        structured_llm = self.get_llm(llm_type, cloud_provider, local_llm_url, output_model=AISystemResponse)
+        prompt_provider = "local" if llm_type == "local" else cloud_provider
+        system_prompt = ai_prompts.get_explanation_prompt(text, target_language, prompt_provider)
 
         messages = [("system", system_prompt), ("human", f"Please explain this {target_language} snippet: {text}")]
         prompt = ChatPromptTemplate.from_messages(messages)
@@ -159,12 +172,14 @@ class AIEngine:
             raise e
 
     def get_suggestion(self, target_language: str = "Korean", 
-                       llm_provider: str = "groq", local_llm_url: Optional[str] = None,
+                       llm_type: str = "cloud", cloud_provider: str = "groq", 
+                       local_llm_url: Optional[str] = None,
                        chat_history: List[dict] = []) -> dict:
         
         # Use a simpler prompt for suggestions
-        llm_simple = self.get_llm(llm_provider, local_llm_url, output_model=SuggestionResponse)
-        system_prompt = ai_prompts.get_suggestion_prompt(target_language, llm_provider)
+        llm_simple = self.get_llm(llm_type, cloud_provider, local_llm_url, output_model=SuggestionResponse)
+        prompt_provider = "local" if llm_type == "local" else cloud_provider
+        system_prompt = ai_prompts.get_suggestion_prompt(target_language, prompt_provider)
 
         messages = [("system", system_prompt)]
         for msg in chat_history[-8:]: # Look at context
@@ -200,10 +215,12 @@ class AIEngine:
             }
 
     async def generate_scenario(self, topic: str, target_language: str, 
-                                llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+                                llm_type: str = "cloud", cloud_provider: str = "groq", 
+                                local_llm_url: Optional[str] = None) -> dict:
         """Generates a full roleplay scenario from a topic."""
-        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=ScenarioInfo)
-        prompt = ai_prompts.get_scenario_generation_prompt(topic, target_language, llm_provider)
+        structured_llm = self.get_llm(llm_type, cloud_provider, local_llm_url, output_model=ScenarioInfo)
+        prompt_provider = "local" if llm_type == "local" else cloud_provider
+        prompt = ai_prompts.get_scenario_generation_prompt(topic, target_language, prompt_provider)
         
         try:
             raw_msg = await structured_llm.ainvoke(prompt)
@@ -231,9 +248,10 @@ class AIEngine:
             }
 
     async def get_writing_assistant(self, text: str, target_language: str, scenario: Optional[dict] = None,
-                                   llm_provider: str = "groq", local_llm_url: Optional[str] = None) -> dict:
+                                   llm_type: str = "cloud", cloud_provider: str = "groq", 
+                                   local_llm_url: Optional[str] = None) -> dict:
         """Generates 3 variations of a user intent (Formal, Casual, Natural)."""
-        structured_llm = self.get_llm(llm_provider, local_llm_url, output_model=WritingAssistantResponse)
+        structured_llm = self.get_llm(llm_type, cloud_provider, local_llm_url, output_model=WritingAssistantResponse)
         prompt_text = ai_prompts.get_writing_assistant_prompt(text, target_language, scenario)
         
         try:

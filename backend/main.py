@@ -56,7 +56,8 @@ def explain(request: ExplainRequest, current_user: User = Depends(get_current_us
         return ai_engine.explain_snippet(
             request.text, 
             target_language=current_user.target_language,
-            llm_provider=current_user.llm_provider,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url
         )
     except Exception as e:
@@ -109,7 +110,8 @@ async def get_writing_assistant(
             text=request.draft_text,
             target_language=target_language,
             scenario=scenario,
-            llm_provider=current_user.llm_provider if hasattr(current_user, 'llm_provider') else 'groq',
+            llm_type=current_user.llm_type if hasattr(current_user, 'llm_type') else 'cloud',
+            cloud_provider=current_user.cloud_provider if hasattr(current_user, 'cloud_provider') else 'groq',
             local_llm_url=current_user.local_llm_url if hasattr(current_user, 'local_llm_url') else None
         )
         return result
@@ -129,6 +131,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = D
         "token_type": "bearer", 
         "username": user.username,
         "target_language": user.target_language,
+        "llm_type": user.llm_type,
+        "cloud_provider": user.cloud_provider,
         "llm_provider": user.llm_provider,
         "local_llm_url": user.local_llm_url
     }
@@ -141,6 +145,10 @@ def get_me(current_user: User = Depends(get_current_user)):
 def update_me(update: UserUpdate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
     if update.target_language:
         current_user.target_language = update.target_language
+    if update.llm_type:
+        current_user.llm_type = update.llm_type
+    if update.cloud_provider:
+        current_user.cloud_provider = update.cloud_provider
     if update.llm_provider:
         current_user.llm_provider = update.llm_provider
     if update.local_llm_url is not None:
@@ -201,7 +209,8 @@ def suggest_chat(request: List[ChatMessageBase], current_user: User = Depends(ge
         
         suggestion_data = ai_engine.get_suggestion(
             target_language=current_user.target_language,
-            llm_provider=current_user.llm_provider,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url,
             chat_history=history_dicts
         )
@@ -253,7 +262,8 @@ async def generate_scenario(request: ScenarioGenerateRequest, current_user: User
         scenario_data = await ai_engine.generate_scenario(
             request.topic, 
             current_user.target_language,
-            llm_provider=current_user.llm_provider,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url
         )
         return scenario_data
@@ -280,7 +290,8 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
         ai_data = ai_engine.generate_response(
             request.user_message, 
             target_language=current_user.target_language,
-            llm_provider=current_user.llm_provider,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url,
             chat_history=history_dicts,
             scenario=scenario_data

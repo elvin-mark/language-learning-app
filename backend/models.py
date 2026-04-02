@@ -7,7 +7,9 @@ class User(SQLModel, table=True):
     username: str = Field(index=True, unique=True)
     hashed_password: str
     target_language: str = Field(default="Korean")
-    llm_provider: str = Field(default="groq")
+    llm_type: str = Field(default="cloud") # "cloud" or "local"
+    llm_provider: str = Field(default="groq") # deprecated but keep for compatibility for now
+    cloud_provider: str = Field(default="groq") # "groq" or "gemini"
     local_llm_url: str = Field(default="http://localhost:1234/v1")
 
 class Word(SQLModel, table=True):

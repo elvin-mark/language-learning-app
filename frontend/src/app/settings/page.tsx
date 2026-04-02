@@ -106,37 +106,37 @@ export default function SettingsPage() {
           </h2>
           
           <div style={{ display: 'flex', flexDirection: 'column', gap: '2rem' }}>
-            {/* Provider Toggle */}
+            {/* Type Toggle: Cloud vs Local */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <div style={{ fontWeight: 600 }}>AI Provider</div>
-                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Select your preferred brain</div>
+                <div style={{ fontWeight: 600 }}>Connection Type</div>
+                <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Cloud (Fast) vs Local (Private)</div>
               </div>
               <div style={{ display: 'flex', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '4px' }}>
                 <button 
-                  onClick={() => updateUser({ llm_provider: 'groq' })}
+                  onClick={() => updateUser({ llm_type: 'cloud' })}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '8px',
                     fontSize: '0.9rem',
                     border: 'none',
                     cursor: 'pointer',
-                    background: user?.llm_provider === 'groq' ? 'var(--primary)' : 'transparent',
+                    background: user?.llm_type === 'cloud' ? 'var(--primary)' : 'transparent',
                     color: 'white',
                     transition: 'all 0.3s ease'
                   }}
                 >
-                  Groq (Cloud)
+                  Cloud LLM
                 </button>
                 <button 
-                  onClick={() => updateUser({ llm_provider: 'local' })}
+                  onClick={() => updateUser({ llm_type: 'local' })}
                   style={{
                     padding: '8px 16px',
                     borderRadius: '8px',
                     fontSize: '0.9rem',
                     border: 'none',
                     cursor: 'pointer',
-                    background: user?.llm_provider === 'local' ? 'var(--primary)' : 'transparent',
+                    background: user?.llm_type === 'local' ? 'var(--primary)' : 'transparent',
                     color: 'white',
                     transition: 'all 0.3s ease'
                   }}
@@ -146,8 +146,63 @@ export default function SettingsPage() {
               </div>
             </div>
 
+            {/* Cloud Provider Selection - only show if cloud is selected */}
+            {user?.llm_type === 'cloud' && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }} 
+                animate={{ opacity: 1, y: 0 }}
+                style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'center',
+                  padding: '1.5rem',
+                  background: 'rgba(255,255,255,0.02)',
+                  borderRadius: '15px',
+                  border: '1px solid var(--border)'
+                }}
+              >
+                <div>
+                  <div style={{ fontWeight: 600 }}>Cloud Provider</div>
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-dim)' }}>Select your preferred AI brain</div>
+                </div>
+                <div style={{ display: 'flex', gap: '1rem' }}>
+                  <button 
+                    onClick={() => updateUser({ cloud_provider: 'groq' })}
+                    className={user?.cloud_provider === 'groq' ? 'active-provider' : ''}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      border: user?.cloud_provider === 'groq' ? '2px solid var(--primary)' : '1px solid var(--border)',
+                      background: user?.cloud_provider === 'groq' ? 'rgba(255, 59, 63, 0.1)' : 'transparent',
+                      color: user?.cloud_provider === 'groq' ? 'white' : 'var(--text-dim)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Groq
+                  </button>
+                  <button 
+                    onClick={() => updateUser({ cloud_provider: 'gemini' })}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '10px',
+                      border: user?.cloud_provider === 'gemini' ? '2px solid #4285F4' : '1px solid var(--border)',
+                      background: user?.cloud_provider === 'gemini' ? 'rgba(66, 133, 244, 0.1)' : 'transparent',
+                      color: user?.cloud_provider === 'gemini' ? 'white' : 'var(--text-dim)',
+                      cursor: 'pointer',
+                      fontWeight: 600,
+                      transition: 'all 0.2s'
+                    }}
+                  >
+                    Gemini
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {/* Local LLM URL - only show if local is selected */}
-            {user?.llm_provider === 'local' && (
+            {user?.llm_type === 'local' && (
               <motion.div 
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}

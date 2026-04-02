@@ -28,11 +28,15 @@ class UserResponse(BaseModel):
     id: int
     username: str
     target_language: str
-    llm_provider: str
+    llm_type: str
+    cloud_provider: str
+    llm_provider: Optional[str] = None
     local_llm_url: Optional[str] = None
 
 class UserUpdate(BaseModel):
     target_language: Optional[str] = None
+    llm_type: Optional[str] = None
+    cloud_provider: Optional[str] = None
     llm_provider: Optional[str] = None
     local_llm_url: Optional[str] = None
 

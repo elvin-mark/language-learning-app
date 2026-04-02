@@ -8,6 +8,8 @@ import axios from 'axios';
 interface User {
   username: string;
   target_language: string;
+  llm_type: string;
+  cloud_provider: string;
   llm_provider: string;
   local_llm_url: string;
 }
@@ -15,7 +17,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (token: string, username: string, target_language: string, llm_provider?: string, local_llm_url?: string) => void;
+  login: (token: string, username: string, target_language: string, llm_type?: string, cloud_provider?: string, llm_provider?: string, local_llm_url?: string) => void;
   logout: () => void;
   updateUser: (updates: Partial<User>) => Promise<void>;
   isLoading: boolean;
@@ -33,6 +35,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const savedToken = localStorage.getItem('token');
     const savedUsername = localStorage.getItem('username');
     const savedLanguage = localStorage.getItem('target_language') || 'Korean';
+    const savedLLMType = localStorage.getItem('llm_type') || 'cloud';
+    const savedCloudProvider = localStorage.getItem('cloud_provider') || 'groq';
     const savedLLM = localStorage.getItem('llm_provider') || 'groq';
     const savedLocalURL = localStorage.getItem('local_llm_url') || 'http://localhost:1234/v1';
     
@@ -41,6 +45,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser({ 
         username: savedUsername, 
         target_language: savedLanguage,
+        llm_type: savedLLMType,
+        cloud_provider: savedCloudProvider,
         llm_provider: savedLLM,
         local_llm_url: savedLocalURL
       });
@@ -61,12 +67,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => api.interceptors.response.eject(interceptor);
   }, []);
 
-  const login = (newToken: string, username: string, target_language: string, llm_provider: string = 'groq', local_llm_url: string = 'http://localhost:1234/v1') => {
+  const login = (
+    newToken: string, 
+    username: string, 
+    target_language: string, 
+    llm_type: string = 'cloud',
+    cloud_provider: string = 'groq',
+    llm_provider: string = 'groq', 
+    local_llm_url: string = 'http://localhost:1234/v1'
+  ) => {
     setToken(newToken);
-    setUser({ username, target_language, llm_provider, local_llm_url });
+    setUser({ username, target_language, llm_type, cloud_provider, llm_provider, local_llm_url });
     localStorage.setItem('token', newToken);
     localStorage.setItem('username', username);
     localStorage.setItem('target_language', target_language);
+    localStorage.setItem('llm_type', llm_type);
+    localStorage.setItem('cloud_provider', cloud_provider);
     localStorage.setItem('llm_provider', llm_provider);
     localStorage.setItem('local_llm_url', local_llm_url);
     api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
@@ -79,6 +95,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('target_language');
+    localStorage.removeItem('llm_type');
+    localStorage.removeItem('cloud_provider');
     localStorage.removeItem('llm_provider');
     localStorage.removeItem('local_llm_url');
     delete api.defaults.headers.common['Authorization'];
@@ -92,6 +110,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const updatedUser = response.data;
       setUser(updatedUser);
       localStorage.setItem('target_language', updatedUser.target_language);
+      localStorage.setItem('llm_type', updatedUser.llm_type);
+      localStorage.setItem('cloud_provider', updatedUser.cloud_provider);
       localStorage.setItem('llm_provider', updatedUser.llm_provider);
       localStorage.setItem('local_llm_url', updatedUser.local_llm_url);
     } catch (err) {
