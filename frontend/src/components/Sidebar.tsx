@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain, PlusCircle, Sparkles } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain, Library, Sparkles } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -14,7 +14,7 @@ const NAV_ITEMS = [
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
   { label: 'Reading', icon: BookOpen, href: '/reading' },
   { label: 'Practice', icon: Brain, href: '/practice' },
-  { label: 'Library', icon: BookOpen, href: '/library' },
+  { label: 'Library', icon: Library, href: '/library' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
 
