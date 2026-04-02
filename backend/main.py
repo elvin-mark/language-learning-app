@@ -290,6 +290,23 @@ def delete_conversation(conversation_id: int, session: Session = Depends(get_ses
     session.commit()
     return {"status": "success"}
 
+@api_router.patch("/conversations/{conversation_id}")
+def update_conversation(
+    conversation_id: int, 
+    title: str, 
+    session: Session = Depends(get_session), 
+    current_user: User = Depends(get_current_user)
+):
+    conv = session.get(Conversation, conversation_id)
+    if not conv or conv.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    
+    conv.title = title
+    session.add(conv)
+    session.commit()
+    session.refresh(conv)
+    return conv
+
 @api_router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessage])
 def get_conversation_messages(conversation_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
     # Verify ownership

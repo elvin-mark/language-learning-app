@@ -11,7 +11,10 @@ import {
   Clock,
   MessageSquare,
   ArrowRight,
-  Trash2
+  Trash2,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -23,6 +26,8 @@ export default function ChatHubPage() {
   const [isMobile, setIsMobile] = useState(false);
   const [recentConversations, setRecentConversations] = useState<any[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editTitle, setEditTitle] = useState('');
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -56,6 +61,36 @@ export default function ChatHubPage() {
     } catch (err) {
       console.error('Failed to delete conversation:', err);
       alert('Failed to delete conversation. Please try again.');
+    }
+  };
+  
+  const handleEditClick = (e: React.MouseEvent, id: number, currentTitle: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(id);
+    setEditTitle(currentTitle);
+  };
+
+  const handleCancelEdit = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setEditingId(null);
+  };
+
+  const handleSaveTitle = async (e: React.MouseEvent | React.KeyboardEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!editTitle.trim()) return;
+
+    try {
+      await api.patch(`/conversations/${id}`, null, {
+        params: { title: editTitle }
+      });
+      setRecentConversations(prev => prev.map(c => c.id === id ? { ...c, title: editTitle } : c));
+      setEditingId(null);
+    } catch (err) {
+      console.error('Failed to update title:', err);
     }
   };
 
@@ -245,30 +280,79 @@ export default function ChatHubPage() {
                       <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
                         {new Date(conv.last_active).toLocaleDateString()}
                       </span>
-                      <button
-                        onClick={(e) => handleDeleteConversation(e, conv.id)}
-                        style={{
-                          background: 'none',
-                          border: 'none',
-                          color: 'var(--text-dim)',
-                          cursor: 'pointer',
-                          padding: '4px',
-                          borderRadius: '6px',
-                          transition: 'all 0.2s',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dim)'}
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <button
+                          onClick={(e) => handleEditClick(e, conv.id, conv.title)}
+                          className="glass-hover"
+                          title="Rename Chat"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-dim)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            borderRadius: '6px'
+                          }}
+                        >
+                          <Pencil size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => handleDeleteConversation(e, conv.id)}
+                          className="glass-hover"
+                          title="Delete Chat"
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: 'var(--text-dim)',
+                            cursor: 'pointer',
+                            padding: '4px',
+                            display: 'flex',
+                            borderRadius: '6px'
+                          }}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                  <div style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {conv.title}
-                  </div>
+
+                  {editingId === conv.id ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.2rem' }}>
+                      <input 
+                        autoFocus
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' ? handleSaveTitle(e, conv.id) : e.key === 'Escape' && handleCancelEdit(e as any)}
+                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                        style={{
+                          flex: 1,
+                          background: 'rgba(255,255,255,0.05)',
+                          border: '1px solid var(--primary)',
+                          borderRadius: '8px',
+                          padding: '0.4rem 0.8rem',
+                          color: 'white',
+                          fontSize: '0.9rem',
+                          outline: 'none'
+                        }}
+                      />
+                      <button 
+                        onClick={(e) => handleSaveTitle(e, conv.id)}
+                        style={{ background: 'var(--primary)', border: 'none', borderRadius: '8px', padding: '0.4rem', color: 'white', cursor: 'pointer', display: 'flex' }}
+                      >
+                        <Check size={14} />
+                      </button>
+                      <button 
+                        onClick={handleCancelEdit}
+                        style={{ background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '0.4rem', color: 'white', cursor: 'pointer', display: 'flex' }}
+                      >
+                        <X size={14} />
+                      </button>
+                    </div>
+                  ) : (
+                    <h3 style={{ fontSize: '1rem', fontWeight: 700, margin: 0, color: 'white' }}>{conv.title}</h3>
+                  )}
+                  
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
                     Resume session <ArrowRight size={12} />
                   </div>
