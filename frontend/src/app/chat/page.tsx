@@ -10,7 +10,8 @@ import {
   Trophy,
   Clock,
   MessageSquare,
-  ArrowRight
+  ArrowRight,
+  Trash2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
@@ -42,6 +43,21 @@ export default function ChatHubPage() {
     fetchHistory();
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  const handleDeleteConversation = async (e: React.MouseEvent, id: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!confirm('Are you sure you want to delete this chat?')) return;
+
+    try {
+      await api.delete(`/conversations/${id}`);
+      setRecentConversations(prev => prev.filter(c => c.id !== id));
+    } catch (err) {
+      console.error('Failed to delete conversation:', err);
+      alert('Failed to delete conversation. Please try again.');
+    }
+  };
 
   return (
     <div style={{ 
@@ -225,9 +241,30 @@ export default function ChatHubPage() {
                     <div style={{ padding: '6px', borderRadius: '8px', background: conv.scenario_id ? 'rgba(107, 91, 149, 0.1)' : 'rgba(255, 59, 63, 0.1)', color: conv.scenario_id ? '#6B5B95' : 'var(--primary)' }}>
                       {conv.scenario_id ? <Target size={14} /> : <MessageSquare size={14} />}
                     </div>
-                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
-                      {new Date(conv.last_active).toLocaleDateString()}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                        {new Date(conv.last_active).toLocaleDateString()}
+                      </span>
+                      <button
+                        onClick={(e) => handleDeleteConversation(e, conv.id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: 'var(--text-dim)',
+                          cursor: 'pointer',
+                          padding: '4px',
+                          borderRadius: '6px',
+                          transition: 'all 0.2s',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.color = '#ef4444'}
+                        onMouseLeave={(e) => e.currentTarget.style.color = 'var(--text-dim)'}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
                   <div style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {conv.title}
