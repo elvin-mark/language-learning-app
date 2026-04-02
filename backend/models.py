@@ -33,9 +33,19 @@ class GrammarPoint(SQLModel, table=True):
     usage_notes: Optional[str] = None
     last_practiced: datetime = Field(default_factory=datetime.utcnow)
 
+class Conversation(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id", index=True)
+    title: str = Field(default="New Conversation")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    last_active: datetime = Field(default_factory=datetime.utcnow)
+    scenario_id: Optional[str] = None # Link to a scenario if applicable
+    target_language: str = Field(default="Korean")
+
 class ChatMessage(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id", index=True)
+    conversation_id: Optional[int] = Field(default=None, foreign_key="conversation.id", index=True)
     role: str  # "user" or "assistant"
     content: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)

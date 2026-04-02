@@ -19,6 +19,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import Link from 'next/link';
 import confetti from 'canvas-confetti';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 interface Scenario {
   id: string;
@@ -54,6 +55,10 @@ export default function RoleplayClient({ id }: { id: string }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const targetLanguage = user?.target_language || 'Korean';
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+  const [conversationId, setConversationId] = useState<number | null>(null);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -61,6 +66,18 @@ export default function RoleplayClient({ id }: { id: string }) {
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
+
+  useEffect(() => {
+    const convId = searchParams.get('id');
+    if (convId) {
+      const parsedId = parseInt(convId);
+      if (parsedId !== conversationId) {
+        setConversationId(parsedId);
+      }
+    } else {
+      setConversationId(null);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchScenario = async () => {
@@ -79,17 +96,46 @@ export default function RoleplayClient({ id }: { id: string }) {
         }
         
         setScenario(scenarioData);
-        // Add initial message from AI
-        setMessages([{ 
-          role: 'assistant', 
-          content: scenarioData.initial_message 
-        }]);
+        
+        // If we have a conversation ID, fetch those messages instead of starting fresh
+        const convId = searchParams.get('id');
+        if (convId) {
+          const msgsRes = await api.get(`/conversations/${convId}/messages`);
+          const mappedMessages = msgsRes.data.map((m: any) => ({
+            role: m.role,
+            content: m.content,
+            completed_indices: m.grammar_used ? JSON.parse(m.grammar_used).map((g: any) => g.id) : [] // Rough mapping for now
+          }));
+          setMessages(mappedMessages);
+          
+          // Re-calculate completed objectives from history
+          const allCompleted = new Set<number>();
+          mappedMessages.forEach((m: any) => {
+             if (m.completed_indices) m.completed_indices.forEach((idx: number) => allCompleted.add(idx));
+          });
+          setCompletedObjectives(Array.from(allCompleted));
+        } else {
+          // Add initial message from AI for NEW chat
+          setMessages([{ 
+            role: 'assistant', 
+            content: scenarioData.initial_message 
+          }]);
+          setCompletedObjectives([]);
+        }
       } catch (err) {
         console.error('Failed to fetch scenario:', err);
       }
     };
-    fetchScenario();
-  }, [id]);
+
+    const convIdStr = searchParams.get('id');
+    const convId = convIdStr ? parseInt(convIdStr) : null;
+    
+    // Only fetch if scenario changed OR we moved to a DIFFERENT conversation
+    // (If convId matches conversationId, it means we just updated the URL locally)
+    if (!scenario || convId !== conversationId) {
+      fetchScenario();
+    }
+  }, [id, searchParams, conversationId]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ 
@@ -127,10 +173,15 @@ export default function RoleplayClient({ id }: { id: string }) {
         user_message: textToSend,
         chat_history: history,
         scenario_id: id,
+        conversation_id: conversationId,
         custom_scenario: id === 'custom' ? scenario : null
       });
       
       const aiData = response.data;
+      if (!conversationId && aiData.conversation_id) {
+        setConversationId(aiData.conversation_id);
+        router.replace(`/chat/roleplay/${id}?id=${aiData.conversation_id}`);
+      }
       
       if (aiData.completed_objective_indices) {
         setCompletedObjectives(prev => {

@@ -1,14 +1,29 @@
 from pydantic import BaseModel
 from typing import List, Optional
+from datetime import datetime
 
 class ChatMessageBase(BaseModel):
     role: str
     content: str
 
+class ConversationResponse(BaseModel):
+    id: int
+    title: str
+    created_at: datetime
+    last_active: datetime
+    scenario_id: Optional[str] = None
+    target_language: str
+
+class ConversationCreate(BaseModel):
+    title: str
+    scenario_id: Optional[str] = None
+    target_language: str
+
 class ChatRequest(BaseModel):
     user_message: str
     chat_history: List[ChatMessageBase] = []
     scenario_id: Optional[str] = None
+    conversation_id: Optional[int] = None
     custom_scenario: Optional[dict] = None
 
 class Variation(BaseModel):

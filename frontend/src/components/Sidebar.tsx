@@ -1,12 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain } from 'lucide-react';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain, PlusCircle } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
+import api from '@/lib/api';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
@@ -121,7 +122,10 @@ export default function Sidebar() {
         <h1 className="gradient-text" style={{ fontSize: '1.8rem' }}>Linguis</h1>
       </div>
       
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1, overflowY: 'auto' }}>
+        <div style={{ padding: '0.8rem 1.2rem', fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-dim)', letterSpacing: '0.05em' }}>
+          Menu
+        </div>
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href));

@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import ExplanationOverlay from '@/components/ExplanationOverlay';
 import SuggestionsCarousel from '@/components/SuggestionsCarousel';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -51,13 +52,41 @@ export default function StandardChatPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const targetLanguage = user?.target_language || 'Korean';
+  const router = useRouter();
+
+  const searchParams = useSearchParams();
+  const [conversationId, setConversationId] = useState<number | null>(null);
 
   useEffect(() => {
+    const id = searchParams.get('id');
+    if (id) {
+      const parsedId = parseInt(id);
+      if (parsedId !== conversationId) {
+        setConversationId(parsedId);
+        fetchConversationMessages(parsedId);
+      }
+    }
+    
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
-  }, []);
+  }, [searchParams]);
+
+  const fetchConversationMessages = async (id: number) => {
+    try {
+      const response = await api.get(`/conversations/${id}/messages`);
+      const mappedMessages = response.data.map((m: any) => ({
+        role: m.role,
+        content: m.content,
+        feedback: m.feedback ? JSON.parse(m.feedback) : null,
+        grammar: m.grammar_used ? JSON.parse(m.grammar_used) : [],
+      }));
+      setMessages(mappedMessages);
+    } catch (err) {
+      console.error('Failed to fetch conversation messages:', err);
+    }
+  };
 
   const latestFeedback = messages.findLast(m => m.role === 'user' && m.feedback)?.feedback;
   const latestAIInfo = messages.findLast(m => m.role === 'assistant');
@@ -114,10 +143,16 @@ export default function StandardChatPage() {
       const history = messages.map(m => ({ role: m.role, content: m.content }));
       const response = await api.post('/chat', { 
         user_message: textToSend,
-        chat_history: history
+        chat_history: history,
+        conversation_id: conversationId
       });
       
       const aiResp = response.data;
+      if (!conversationId && aiResp.conversation_id) {
+        setConversationId(aiResp.conversation_id);
+        router.replace(`/chat/standard?id=${aiResp.conversation_id}`);
+      }
+
       const aiMessage: Message = { 
         role: 'assistant', 
         content: aiResp.response_target,

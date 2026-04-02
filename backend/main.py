@@ -11,11 +11,11 @@ import os
 import random
 
 from backend.database import create_db_and_tables, get_session, engine
-from backend.models import User, Word, GrammarPoint, ChatMessage
+from backend.models import User, Word, GrammarPoint, ChatMessage, Conversation
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -249,6 +249,40 @@ def get_usage(session: Session = Depends(get_session), current_user: User = Depe
 def get_scenarios():
     return scenarios.get_all_scenarios()
 
+@api_router.get("/conversations", response_model=List[ConversationResponse])
+def get_conversations(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    return session.exec(
+        select(Conversation)
+        .where(Conversation.user_id == current_user.id)
+        .order_by(Conversation.last_active.desc())
+    ).all()
+
+@api_router.post("/conversations", response_model=ConversationResponse)
+def create_conversation(req: ConversationCreate, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    new_conv = Conversation(
+        user_id=current_user.id,
+        title=req.title,
+        scenario_id=req.scenario_id,
+        target_language=req.target_language
+    )
+    session.add(new_conv)
+    session.commit()
+    session.refresh(new_conv)
+    return new_conv
+
+@api_router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessage])
+def get_conversation_messages(conversation_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    # Verify ownership
+    conv = session.get(Conversation, conversation_id)
+    if not conv or conv.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+        
+    return session.exec(
+        select(ChatMessage)
+        .where(ChatMessage.conversation_id == conversation_id)
+        .order_by(ChatMessage.timestamp.asc())
+    ).all()
+
 @api_router.get("/scenarios/{scenario_id}")
 def get_one_scenario(scenario_id: str):
     s = scenarios.get_scenario(scenario_id)
@@ -286,7 +320,29 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
             if scenario_data_obj:
                 scenario_data = scenario_data_obj.dict()
         
-        # 1. AI Generation
+        # 1. Conversation Handling
+        conv_id = request.conversation_id
+        if not conv_id:
+            # Create a new conversation if none provided
+            title = scenario_data["name"] if scenario_data else f"Chat in {current_user.target_language}"
+            new_conv = Conversation(
+                user_id=current_user.id,
+                title=title,
+                scenario_id=request.scenario_id,
+                target_language=current_user.target_language
+            )
+            session.add(new_conv)
+            session.commit()
+            session.refresh(new_conv)
+            conv_id = new_conv.id
+        else:
+            # Update last active
+            conv = session.get(Conversation, conv_id)
+            if conv:
+                conv.last_active = datetime.now()
+                session.add(conv)
+
+        # 2. AI Generation
         ai_data = ai_engine.generate_response(
             request.user_message, 
             target_language=current_user.target_language,
@@ -299,20 +355,22 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
         ai_resp: AISystemResponse = ai_data["response"]
         usage = ai_data["usage"]
         
-        # 2. Persist User Message
+        # 3. Persist User Message
         user_msg = ChatMessage(
             role="user", 
             content=request.user_message, 
             user_id=current_user.id,
+            conversation_id=conv_id,
             feedback=json.dumps(ai_resp.feedback.dict()) if ai_resp.feedback else None
         )
         session.add(user_msg)
         
-        # 3. Persist Assistant Message
+        # 4. Persist Assistant Message
         assistant_msg = ChatMessage(
             role="assistant", 
             content=ai_resp.response_target,
             user_id=current_user.id,
+            conversation_id=conv_id,
             grammar_used=json.dumps([g.dict() for g in ai_resp.grammar]),
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
@@ -360,7 +418,11 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
         
         session.commit()
         
-        return ai_resp
+        # Return merged AI response with metadata
+        return {
+            **ai_resp.dict(), 
+            "conversation_id": conv_id
+        }
         
     except Exception as e:
         import traceback

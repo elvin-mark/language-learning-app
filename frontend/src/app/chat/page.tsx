@@ -7,20 +7,39 @@ import {
   ChevronRight, 
   BookOpen, 
   CheckCircle2,
-  Trophy
+  Trophy,
+  Clock,
+  MessageSquare,
+  ArrowRight
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import Link from 'next/link';
+import api from '@/lib/api';
 
 import { useState, useEffect } from 'react';
 
 export default function ChatHubPage() {
   const [isMobile, setIsMobile] = useState(false);
+  const [recentConversations, setRecentConversations] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(true);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
     window.addEventListener('resize', checkMobile);
+    
+    const fetchHistory = async () => {
+      try {
+        const response = await api.get('/conversations');
+        setRecentConversations(response.data.slice(0, 4));
+      } catch (err) {
+        console.error('Failed to fetch history:', err);
+      } finally {
+        setIsLoadingHistory(false);
+      }
+    };
+
+    fetchHistory();
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
@@ -163,6 +182,65 @@ export default function ChatHubPage() {
           </motion.div>
         </Link>
       </div>
+
+      {/* Recent History Section */}
+      {!isLoadingHistory && recentConversations.length > 0 && (
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ width: '100%', marginTop: '1rem' }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.2rem', padding: '0 0.5rem' }}>
+            <div style={{ padding: '8px', borderRadius: '10px', background: 'rgba(255, 255, 255, 0.05)', color: 'var(--primary)' }}>
+              <Clock size={20} />
+            </div>
+            <h2 style={{ fontSize: '1.2rem', fontWeight: 800 }}>Continue Your Progress</h2>
+          </div>
+          
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(220px, 1fr))', 
+            gap: '1rem' 
+          }}>
+            {recentConversations.map((conv) => (
+              <Link 
+                key={conv.id} 
+                href={conv.scenario_id ? `/chat/roleplay/${conv.scenario_id}?id=${conv.id}` : `/chat/standard?id=${conv.id}`}
+                style={{ textDecoration: 'none', color: 'inherit' }}
+              >
+                <motion.div
+                  whileHover={{ scale: 1.02, background: 'rgba(255,255,255,0.05)' }}
+                  className="glass"
+                  style={{
+                    padding: '1.2rem',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border)',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.5rem'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ padding: '6px', borderRadius: '8px', background: conv.scenario_id ? 'rgba(107, 91, 149, 0.1)' : 'rgba(255, 59, 63, 0.1)', color: conv.scenario_id ? '#6B5B95' : 'var(--primary)' }}>
+                      {conv.scenario_id ? <Target size={14} /> : <MessageSquare size={14} />}
+                    </div>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-dim)', fontWeight: 600 }}>
+                      {new Date(conv.last_active).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <div style={{ fontWeight: 700, fontSize: '0.95rem', marginTop: '0.3rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {conv.title}
+                  </div>
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '0.3rem', marginTop: '0.2rem' }}>
+                    Resume session <ArrowRight size={12} />
+                  </div>
+                </motion.div>
+              </Link>
+            ))}
+          </div>
+        </motion.div>
+      )}
 
       <div style={{ 
         background: 'rgba(255,255,255,0.02)', 
