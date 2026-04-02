@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain } from 'lucide-react';
 import { clsx } from 'clsx';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
 import { useState, useEffect } from 'react';
 
@@ -31,6 +32,8 @@ export default function Sidebar() {
   if (pathname.startsWith('/login')) return null;
 
   if (isMobile) {
+    const isVeryNarrow = typeof window !== 'undefined' && window.innerWidth <= 360;
+
     return (
       <nav 
         className="glass" 
@@ -44,11 +47,12 @@ export default function Sidebar() {
           justifyContent: 'space-around', 
           alignItems: 'center', 
           zIndex: 1000, 
-          borderRadius: '20px 20px 0 0',
+          borderRadius: '24px 24px 0 0',
           borderTop: '1px solid var(--border)',
-          padding: '0 1rem',
-          backgroundColor: 'rgba(15, 15, 18, 0.92)',
-          boxShadow: '0 -4px 20px rgba(0, 0, 0, 0.4)'
+          padding: '0 0.5rem',
+          backgroundColor: 'rgba(15, 15, 18, 0.95)',
+          boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.5)',
+          backdropFilter: 'blur(20px)'
         }}
       >
         {NAV_ITEMS.map((item) => {
@@ -62,13 +66,48 @@ export default function Sidebar() {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                gap: '4px',
+                justifyContent: 'center',
+                gap: '2px',
                 color: isActive ? 'var(--primary)' : 'var(--text-dim)',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                flex: 1,
+                height: '100%',
+                padding: '0 4px',
+                position: 'relative'
               }}
             >
-              <Icon size={22} />
-              <span style={{ fontSize: '0.65rem', fontWeight: 600 }}>{item.label}</span>
+              <div style={{
+                padding: '6px',
+                borderRadius: '12px',
+                background: isActive ? 'rgba(255, 59, 63, 0.1)' : 'transparent',
+                transition: 'all 0.2s ease'
+              }}>
+                <Icon size={isVeryNarrow ? 20 : 22} style={{ 
+                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                  transition: 'transform 0.2s ease'
+                }} />
+              </div>
+              <span style={{ 
+                fontSize: isVeryNarrow ? '0.6rem' : '0.65rem', 
+                fontWeight: isActive ? 700 : 500,
+                opacity: isVeryNarrow && !isActive ? 0.7 : 1,
+                letterSpacing: '-0.02em'
+              }}>
+                {item.label}
+              </span>
+              {isActive && (
+                <motion.div 
+                  layoutId="nav-active"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    width: '30px',
+                    height: '3px',
+                    background: 'var(--primary)',
+                    borderRadius: '0 0 4px 4px'
+                  }}
+                />
+              )}
             </Link>
           );
         })}

@@ -12,43 +12,64 @@ import {
 import { motion } from 'framer-motion';
 import Link from 'next/link';
 
+import { useState, useEffect } from 'react';
+
 export default function ChatHubPage() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   return (
     <div style={{ 
       maxWidth: '1000px', 
       margin: '0 auto', 
-      padding: '2rem 1rem',
+      padding: isMobile ? '1rem' : '2rem 1rem',
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: '3rem'
+      gap: isMobile ? '2rem' : '3rem'
     }}>
       <div style={{ textAlign: 'center' }}>
-        <h1 className="gradient-text" style={{ fontSize: '3rem', fontWeight: 900, marginBottom: '1rem' }}>
+        <h1 className="gradient-text" style={{ 
+          fontSize: isMobile ? '2.2rem' : '3rem', 
+          fontWeight: 900, 
+          marginBottom: '0.8rem',
+          lineHeight: 1.1
+        }}>
           Language Lab
         </h1>
-        <p style={{ color: 'var(--subtitle)', fontSize: '1.2rem', maxWidth: '600px' }}>
+        <p style={{ 
+          color: 'var(--subtitle)', 
+          fontSize: isMobile ? '1rem' : '1.2rem', 
+          maxWidth: '600px',
+          padding: '0 1rem'
+        }}>
           Choose your practice style. Free conversation or goal-oriented missions?
         </p>
       </div>
 
       <div style={{ 
         display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', 
-        gap: '2rem',
+        gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fit, minmax(350px, 1fr))', 
+        gap: '1.5rem',
         width: '100%'
       }}>
         {/* Card 1: Standard Chat */}
         <Link href="/chat/standard" style={{ textDecoration: 'none', color: 'inherit' }}>
           <motion.div
-            whileHover={{ y: -8, scale: 1.02 }}
+            whileHover={isMobile ? {} : { y: -8, scale: 1.02 }}
             className="glass"
             style={{ 
-              padding: '2.5rem', 
+              padding: isMobile ? '1.5rem' : '2.5rem', 
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem',
+              gap: '1.2rem',
               border: '1px solid var(--border)',
               background: 'linear-gradient(135deg, rgba(255, 59, 63, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%)',
               cursor: 'pointer',
@@ -57,36 +78,36 @@ export default function ChatHubPage() {
             }}
           >
             <div style={{ 
-              width: '60px', 
-              height: '60px', 
-              borderRadius: '20px', 
+              width: '50px', 
+              height: '50px', 
+              borderRadius: '16px', 
               background: 'var(--primary)', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
               boxShadow: '0 8px 20px rgba(255, 59, 63, 0.3)'
             }}>
-              <MessageCircle size={32} color="white" />
+              <MessageCircle size={28} color="white" />
             </div>
             
             <div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.8rem' }}>Free Conversation</h2>
-              <p style={{ color: 'var(--subtitle)', lineHeight: 1.6 }}>
-                Chat about anything. Get real-time grammar corrections and vocabulary suggestions as you speak.
+              <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>Free Conversation</h2>
+              <p style={{ color: 'var(--subtitle)', lineHeight: 1.5, fontSize: isMobile ? '0.95rem' : '1rem' }}>
+                Chat about anything. Get real-time grammar corrections as you speak.
               </p>
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
-                <CheckCircle2 size={16} color="#22c55e" /> Real-time grammar feedback
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                <CheckCircle2 size={14} color="#22c55e" /> Real-time grammar feedback
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
-                <BookOpen size={16} color="var(--accent)" /> Smart vocab suggestions
+              <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                <BookOpen size={14} color="var(--accent)" /> Smart vocab suggestions
               </li>
             </ul>
 
-            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: 'var(--primary)' }}>
-              Start Chatting <ChevronRight size={18} />
+            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: 'var(--primary)', fontSize: '0.95rem' }}>
+              Start Chatting <ChevronRight size={16} />
             </div>
           </motion.div>
         </Link>
@@ -94,64 +115,74 @@ export default function ChatHubPage() {
         {/* Card 2: Roleplay Missions */}
         <Link href="/chat/missions" style={{ textDecoration: 'none', color: 'inherit' }}>
           <motion.div
-            whileHover={{ y: -8, scale: 1.02 }}
+            whileHover={isMobile ? {} : { y: -8, scale: 1.02 }}
             className="glass"
             style={{ 
-              padding: '2.5rem', 
+              padding: isMobile ? '1.5rem' : '2.5rem', 
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
-              gap: '1.5rem',
+              gap: '1.2rem',
               border: '1px solid var(--border)',
               background: 'linear-gradient(135deg, rgba(107, 91, 149, 0.1) 0%, rgba(255, 255, 255, 0.02) 100%)',
               cursor: 'pointer'
             }}
           >
             <div style={{ 
-              width: '60px', 
-              height: '60px', 
-              borderRadius: '20px', 
+              width: '50px', 
+              height: '50px', 
+              borderRadius: '16px', 
               background: '#6B5B95', 
               display: 'flex', 
               alignItems: 'center', 
               justifyContent: 'center',
               boxShadow: '0 8px 20px rgba(107, 91, 149, 0.3)'
             }}>
-              <Target size={32} color="white" />
+              <Target size={28} color="white" />
             </div>
             
             <div>
-              <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.8rem' }}>Guided Missions</h2>
-              <p style={{ color: 'var(--subtitle)', lineHeight: 1.6 }}>
-                Enter realistic scenarios with specific goals. Complete objectives to succeed in your mission.
+              <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>Guided Missions</h2>
+              <p style={{ color: 'var(--subtitle)', lineHeight: 1.5, fontSize: isMobile ? '0.95rem' : '1rem' }}>
+                Enter realistic scenarios with specific goals. Complete objectives to succeed.
               </p>
             </div>
 
-            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
-                <Trophy size={16} color="var(--accent)" /> Objective-based progression
+            <ul style={{ listStyle: 'none', padding: 0, display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
+              <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                <Trophy size={14} color="var(--accent)" /> Objective-based progression
               </li>
-              <li style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', fontSize: '0.9rem', color: 'var(--text-dim)' }}>
-                <Sparkles size={16} color="#FCD34D" /> Task completion rewards
+              <li style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '0.85rem', color: 'var(--text-dim)' }}>
+                <Sparkles size={14} color="#FCD34D" /> Task completion rewards
               </li>
             </ul>
 
-            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 700, color: '#6B5B95' }}>
-              View Missions <ChevronRight size={18} />
+            <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '0.4rem', fontWeight: 700, color: '#6B5B95', fontSize: '0.95rem' }}>
+              View Missions <ChevronRight size={16} />
             </div>
           </motion.div>
         </Link>
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.02)', padding: '1.5rem 3rem', borderRadius: '40px', border: '1px solid var(--border)', display: 'flex', gap: '3rem' }}>
+      <div style={{ 
+        background: 'rgba(255,255,255,0.02)', 
+        padding: isMobile ? '1.5rem' : '1.5rem 3rem', 
+        borderRadius: isMobile ? '24px' : '40px', 
+        border: '1px solid var(--border)', 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        gap: isMobile ? '1.5rem' : '3rem',
+        width: isMobile ? '100%' : 'auto',
+        alignItems: 'center'
+      }}>
          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>AI Core</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>POWERED BY GROQ</div>
+            <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>AI Core</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>POWERED BY GROQ</div>
          </div>
-         <div style={{ borderLeft: '1px solid var(--border)' }}></div>
+         { !isMobile && <div style={{ borderLeft: '1px solid var(--border)', height: '40px' }}></div> }
          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>10+ Scenarios</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)' }}>REAL-WORLD TOPICS</div>
+            <div style={{ fontSize: isMobile ? '1.2rem' : '1.5rem', fontWeight: 800 }}>10+ Scenarios</div>
+            <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)' }}>REAL-WORLD TOPICS</div>
          </div>
       </div>
     </div>
