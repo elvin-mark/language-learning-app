@@ -63,7 +63,7 @@ export default function LibraryPage() {
   const totalPages = Math.ceil(totalItems / PAGE_SIZE);
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+    <div className="dashboard-container">
       <header style={{ marginBottom: '3rem' }}>
         <h1 className="gradient-text" style={{ fontSize: '2.5rem' }}>{targetLanguage} Library</h1>
         <p style={{ color: 'var(--text-dim)', marginTop: '0.5rem' }}>

@@ -22,6 +22,12 @@ class Word(SQLModel, table=True):
     example_sentence: Optional[str] = None
     last_practiced: datetime = Field(default_factory=datetime.utcnow)
     mastery_level: int = Field(default=0)  # 0 to 100
+    
+    # SRS Fields
+    interval: int = Field(default=0)
+    easiness_factor: float = Field(default=2.5)
+    repetitions: int = Field(default=0)
+    next_review_date: datetime = Field(default_factory=datetime.utcnow)
 
 class GrammarPoint(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
@@ -33,6 +39,12 @@ class GrammarPoint(SQLModel, table=True):
     usage_notes: Optional[str] = None
     last_practiced: datetime = Field(default_factory=datetime.utcnow)
     mastery_level: int = Field(default=0)  # 0 to 100
+    
+    # SRS Fields
+    interval: int = Field(default=0)
+    easiness_factor: float = Field(default=2.5)
+    repetitions: int = Field(default=0)
+    next_review_date: datetime = Field(default_factory=datetime.utcnow)
 
 class Conversation(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

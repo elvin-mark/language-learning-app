@@ -129,27 +129,24 @@ export default function PracticePage() {
     }
   };
 
-  const nextCard = async () => {
-    // Increment mastery if correct (or if flashcard just viewed)
-    if (feedback === 'correct' || currentMode === 'flashcard') {
-      try {
-        await api.post('/practice/mastery', null, {
-          params: {
-            item_id: currentItem.id,
-            item_type: currentItem.type
-          }
-        });
-      } catch (err) {
-        console.error('Failed to update mastery:', err);
+  const handleRate = async (quality: number) => {
+    try {
+      await api.post('/practice/mastery', {
+        item_id: currentItem.id,
+        item_type: currentItem.type,
+        quality: quality
+      });
+      
+      // Move to next card
+      if (currentIndex < items.length - 1) {
+        const nextIdx = currentIndex + 1;
+        setCurrentIndex(nextIdx);
+        setupExercise(items[nextIdx]);
+      } else {
+        setGameState('finished');
       }
-    }
-
-    if (currentIndex < items.length - 1) {
-      const nextIdx = currentIndex + 1;
-      setCurrentIndex(nextIdx);
-      setupExercise(items[nextIdx]);
-    } else {
-      setGameState('finished');
+    } catch (err) {
+      console.error('Failed to update mastery:', err);
     }
   };
 
@@ -252,15 +249,17 @@ export default function PracticePage() {
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: isMobile ? '1rem' : '2rem 1.5rem' }}>
       <header style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', justifyContent: 'space-between', alignItems: isMobile ? 'flex-start' : 'center', marginBottom: isMobile ? '1.5rem' : '2.5rem', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: isMobile ? '1.5rem' : '1.8rem', fontWeight: 900, letterSpacing: '-0.02em' }}>Practice</h2>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginTop: '0.4rem' }}>
-            <span style={{ color: 'var(--text-dim)', fontSize: '0.9rem' }}>{currentIndex + 1} of {items.length}</span>
-            <div style={{ background: 'rgba(255,255,255,0.05)', height: '4px', width: isMobile ? '80px' : '100px', borderRadius: '2px' }}>
-              <div style={{ background: 'var(--primary)', height: '100%', width: `${((currentIndex + 1) / items.length) * 100}%`, borderRadius: '2px' }} />
+          <h2 style={{ fontSize: '2rem', fontWeight: 900, letterSpacing: '-0.02em' }}>Practice</h2>
+          <div className="items-center gap-4 mt-2">
+            <span style={{ color: 'var(--text-dim)', fontSize: '0.9rem', fontWeight: 600 }}>{currentIndex + 1} / {items.length}</span>
+            <div style={{ background: 'rgba(255,255,255,0.05)', height: '8px', width: '200px', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ background: 'var(--primary)', height: '100%', width: `${((currentIndex + 1) / items.length) * 100}%`, borderRadius: '4px', boxShadow: '0 0 10px var(--primary-glow)' }} />
             </div>
           </div>
         </div>
-        <button onClick={() => setGameState('setup')} style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1rem', borderRadius: '12px', fontSize: '0.85rem', fontWeight: 700 }}><XCircle size={16} /> End Session</button>
+        <button onClick={() => setGameState('setup')} className="glass items-center gap-2 px-6 py-3 hover:bg-white/10 transition-all" style={{ border: '1px solid var(--border)', color: 'white', cursor: 'pointer', borderRadius: '12px', fontSize: '0.9rem', fontWeight: 700 }}>
+          <XCircle size={18} /> End Session
+        </button>
       </header>
 
       <div style={{ minHeight: isMobile ? '400px' : '520px', position: 'relative' }}>
@@ -381,28 +380,81 @@ export default function PracticePage() {
         </AnimatePresence>
       </div>
 
-      {/* Footer Controls */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: isMobile ? '0.8rem' : '1.5rem', marginTop: isMobile ? '2.5rem' : '4rem' }}>
-        <button onClick={prevCard} disabled={currentIndex === 0} className="glass-hover" style={{ width: isMobile ? '56px' : '72px', height: isMobile ? '56px' : '72px', borderRadius: '18px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', opacity: currentIndex === 0 ? 0.3 : 1, background: 'rgba(255,255,255,0.03)', color: 'white', transition: 'all 0.2s' }}>
-          <ChevronLeft size={isMobile ? 24 : 32} />
-        </button>
-
-        <button
-          onClick={nextCard}
-          className="primary-button glass-hover shadow-button"
-          style={{
-            flex: 1,
-            maxWidth: isMobile ? 'none' : '350px',
-            padding: isMobile ? '1.1rem' : '1.3rem',
-            borderRadius: '20px',
-            background: feedback !== 'neutral' || currentMode === 'flashcard' ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
-            color: 'white',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.8rem', fontSize: isMobile ? '1rem' : '1.2rem', fontWeight: 900, border: 'none', cursor: 'pointer', opacity: feedback !== 'neutral' || currentMode === 'flashcard' ? 1 : 0.6
-          }}
-        >
-          {currentIndex === items.length - 1 ? (isMobile ? 'Finish' : 'Complete Practice') : (isMobile ? 'Continue' : 'Continue Practice')} 
-          <ChevronRight size={isMobile ? 18 : 24} />
-        </button>
+      {/* Footer Controls / SRS Ratings */}
+      <div className="flex-col items-center gap-6 mt-8 mb-8" style={{ width: '100%', maxWidth: '600px', margin: '2rem auto' }}>
+        <AnimatePresence mode="wait">
+          {(isFlipped || feedback !== 'neutral') ? (
+            <motion.div 
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: -20, opacity: 0 }}
+              className="flex-row gap-4"
+              style={{ width: '100%' }}
+            >
+              <button 
+                onClick={() => handleRate(1)}
+                className="glass"
+                style={{ 
+                  flex: 1, 
+                  padding: '1.25rem', 
+                  borderRadius: '1rem', 
+                  border: '1px solid rgba(239, 68, 68, 0.3)', 
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)', 
+                  color: '#ef4444', 
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Hard
+              </button>
+              <button 
+                onClick={() => handleRate(2)}
+                className="glass"
+                style={{ 
+                  flex: 1, 
+                  padding: '1.25rem', 
+                  borderRadius: '1rem', 
+                  border: '1px solid rgba(59, 130, 246, 0.3)', 
+                  backgroundColor: 'rgba(59, 130, 246, 0.1)', 
+                  color: '#3b82f6', 
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Good
+              </button>
+              <button 
+                onClick={() => handleRate(3)}
+                className="glass"
+                style={{ 
+                  flex: 1, 
+                  padding: '1.25rem', 
+                  borderRadius: '1rem', 
+                  border: '1px solid rgba(34, 197, 94, 0.3)', 
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)', 
+                  color: '#22c55e', 
+                  fontWeight: 'bold',
+                  cursor: 'pointer'
+                }}
+              >
+                Easy
+              </button>
+            </motion.div>
+          ) : (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="items-center gap-4"
+            >
+               <button onClick={prevCard} disabled={currentIndex === 0} className="glass" style={{ width: '3.5rem', height: '3.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: currentIndex === 0 ? 'not-allowed' : 'pointer', opacity: currentIndex === 0 ? 0.3 : 1 }}>
+                  <ChevronLeft size={24} />
+               </button>
+               <div style={{ color: 'var(--text-dim)', fontSize: '0.875rem', fontWeight: 500 }}>
+                  {currentMode === 'flashcard' ? 'Flip card to rate' : 'Solve to rate'}
+               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

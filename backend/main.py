@@ -5,17 +5,18 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from sqlmodel import Session, select, func, or_, desc, asc
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import json
 import os
 import random
+import math
 
 from backend.database import create_db_and_tables, get_session, engine
 from backend.models import User, Word, GrammarPoint, ChatMessage, Conversation
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate, ReadingGenerateRequest
+from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate, ReadingGenerateRequest, PracticeMasteryRequest
 from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
 
 app = FastAPI(title="Linguis - AI Language Learning")
@@ -69,13 +70,6 @@ def explain(request: ExplainRequest, current_user: User = Depends(get_current_us
         print(f"ERROR in /explain: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.on_event("startup")
-def on_startup():
-    # During dev: auto-drop tables to apply schema changes (caution!)
-    # from backend.models import SQLModel
-    # SQLModel.metadata.drop_all(engine)
-    create_db_and_tables()
 
 @api_router.post("/register")
 def register(username: str, password: str, session: Session = Depends(get_session)):
@@ -638,24 +632,107 @@ def get_practice_items(
 
 @api_router.post("/practice/mastery")
 def update_mastery(
-    item_id: int, 
-    item_type: str, # "word" or "grammar"
+    req: PracticeMasteryRequest,
     session: Session = Depends(get_session), 
     current_user: User = Depends(get_current_user)
 ):
-    if item_type == "word":
-        item = session.get(Word, item_id)
+    if req.item_type == "word":
+        item = session.get(Word, req.item_id)
     else:
-        item = session.get(GrammarPoint, item_id)
+        item = session.get(GrammarPoint, req.item_id)
         
     if not item or item.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Item not found")
         
-    item.mastery_level = min(100, item.mastery_level + 10)
+    # Map quality 1-3 to SM-2 quality 0-5
+    # 1 (Hard) -> 1, 2 (Good) -> 3, 3 (Easy) -> 5
+    q_map = {1: 1, 2: 3, 3: 5}
+    q = q_map.get(req.quality, 3)
+    
+    # SM-2 Algorithm
+    if q >= 3:
+        if item.repetitions == 0:
+            item.interval = 1
+        elif item.repetitions == 1:
+            item.interval = 6
+        else:
+            item.interval = math.ceil(item.interval * item.easiness_factor)
+        item.repetitions += 1
+    else:
+        item.repetitions = 0
+        item.interval = 1
+    
+    # Update Easiness Factor
+    item.easiness_factor = item.easiness_factor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+    if item.easiness_factor < 1.3:
+        item.easiness_factor = 1.3
+        
+    # Update Mastery Level (0-100)
+    # Mastery increases if q >= 3, decreases if q < 3
+    if q >= 3:
+        item.mastery_level = min(100, item.mastery_level + (q * 2))
+    else:
+        item.mastery_level = max(0, item.mastery_level - 10)
+        
     item.last_practiced = datetime.now()
+    item.next_review_date = item.last_practiced + timedelta(days=item.interval)
+    
     session.add(item)
     session.commit()
-    return {"status": "success", "new_mastery": item.mastery_level}
+    return {
+        "status": "success", 
+        "new_mastery": item.mastery_level,
+        "next_review": item.next_review_date
+    }
+
+@api_router.get("/practice/stats")
+def get_practice_stats(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    now = datetime.now()
+    due_words = session.exec(select(func.count(Word.id)).where(
+        Word.user_id == current_user.id,
+        Word.language == current_user.target_language,
+        Word.next_review_date <= now
+    )).one()
+    
+    due_grammar = session.exec(select(func.count(GrammarPoint.id)).where(
+        GrammarPoint.user_id == current_user.id,
+        GrammarPoint.language == current_user.target_language,
+        GrammarPoint.next_review_date <= now
+    )).one()
+    
+    return {
+        "due_total": due_words + due_grammar,
+        "due_words": due_words,
+        "due_grammar": due_grammar
+    }
+
+@api_router.get("/analytics/mastery-distribution")
+def get_mastery_distribution(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+    words = session.exec(select(Word.mastery_level).where(
+        Word.user_id == current_user.id,
+        Word.language == current_user.target_language
+    )).all()
+    
+    grammar = session.exec(select(GrammarPoint.mastery_level).where(
+        GrammarPoint.user_id == current_user.id,
+        GrammarPoint.language == current_user.target_language
+    )).all()
+    
+    all_mastery = words + grammar
+    
+    # Buckets: 0-20, 21-40, 41-60, 61-80, 81-100
+    distribution = [0] * 5
+    for m in all_mastery:
+        if m <= 20: distribution[0] += 1
+        elif m <= 40: distribution[1] += 1
+        elif m <= 60: distribution[2] += 1
+        elif m <= 80: distribution[3] += 1
+        else: distribution[4] += 1
+        
+    return {
+        "labels": ["Beginner", "Developing", "Proficient", "Advanced", "Mastered"],
+        "values": distribution
+    }
 
 # Include the API router
 app.include_router(api_router)

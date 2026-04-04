@@ -69,3 +69,8 @@ class ScenarioGenerateRequest(BaseModel):
 class ReadingGenerateRequest(BaseModel):
     topic: str
     difficulty: Optional[str] = "Intermediate"
+
+class PracticeMasteryRequest(BaseModel):
+    item_id: int
+    item_type: str  # "word" or "grammar"
+    quality: int    # 1=Hard, 2=Good, 3=Easy
