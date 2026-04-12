@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
-import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain, Library, Sparkles } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, Settings, LogOut, User as UserIcon, Brain, Library, Sparkles, Edit3 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/context/AuthContext';
@@ -13,10 +13,12 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, href: '/' },
   { label: 'Chat', icon: MessageSquare, href: '/chat' },
   { label: 'Reading', icon: BookOpen, href: '/reading' },
+  { label: 'Journal', icon: Edit3, href: '/journal' },
   { label: 'Practice', icon: Brain, href: '/practice' },
   { label: 'Library', icon: Library, href: '/library' },
   { label: 'Settings', icon: Settings, href: '/settings' },
 ];
+
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -34,26 +36,24 @@ export default function Sidebar() {
   if (pathname.startsWith('/login')) return null;
 
   if (isMobile) {
-    const isVeryNarrow = typeof window !== 'undefined' && window.innerWidth <= 360;
-
     return (
       <nav
         className="glass"
         style={{
           position: 'fixed',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '70px',
+          bottom: '1rem',
+          left: '1rem',
+          right: '1rem',
+          height: '64px',
           display: 'flex',
           justifyContent: 'space-around',
           alignItems: 'center',
           zIndex: 1000,
-          borderRadius: '24px 24px 0 0',
-          borderTop: '1px solid var(--border)',
+          borderRadius: '20px',
+          border: '1px solid var(--border)',
           padding: '0 0.5rem',
-          backgroundColor: 'rgba(15, 15, 18, 0.95)',
-          boxShadow: '0 -8px 30px rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'rgba(15, 15, 18, 0.8)',
+          boxShadow: '0 10px 40px rgba(0, 0, 0, 0.4)',
           backdropFilter: 'blur(20px)'
         }}
       >
@@ -66,47 +66,42 @@ export default function Sidebar() {
               href={item.href}
               style={{
                 display: 'flex',
-                flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '2px',
                 color: isActive ? 'var(--primary)' : 'var(--text-dim)',
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 flex: 1,
                 height: '100%',
-                padding: '0 4px',
                 position: 'relative'
               }}
             >
-              <div style={{
-                padding: '6px',
-                borderRadius: '12px',
-                background: isActive ? 'rgba(255, 59, 63, 0.1)' : 'transparent',
-                transition: 'all 0.2s ease'
-              }}>
-                <Icon size={isVeryNarrow ? 20 : 22} style={{
-                  transform: isActive ? 'scale(1.1)' : 'scale(1)',
-                  transition: 'transform 0.2s ease'
-                }} />
-              </div>
-              <span style={{
-                fontSize: isVeryNarrow ? '0.6rem' : '0.65rem',
-                fontWeight: isActive ? 700 : 500,
-                opacity: isVeryNarrow && !isActive ? 0.7 : 1,
-                letterSpacing: '-0.02em'
-              }}>
-                {item.label}
-              </span>
+              <motion.div 
+                animate={{ 
+                  scale: isActive ? 1.2 : 1,
+                  backgroundColor: isActive ? 'rgba(255, 59, 63, 0.15)' : 'transparent'
+                }}
+                style={{
+                  padding: '10px',
+                  borderRadius: '16px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <Icon size={24} strokeWidth={isActive ? 2.5 : 2} />
+              </motion.div>
+              
               {isActive && (
                 <motion.div
-                  layoutId="nav-active"
+                  layoutId="nav-active-mobile"
                   style={{
                     position: 'absolute',
-                    top: 0,
-                    width: '30px',
-                    height: '3px',
+                    bottom: '8px',
+                    width: '4px',
+                    height: '4px',
                     background: 'var(--primary)',
-                    borderRadius: '0 0 4px 4px'
+                    borderRadius: '50%',
+                    boxShadow: '0 0 8px var(--primary-glow)'
                   }}
                 />
               )}
@@ -116,6 +111,7 @@ export default function Sidebar() {
       </nav>
     );
   }
+
 
   return (
     <aside className="sidebar glass">

@@ -1,5 +1,6 @@
 from typing import Optional
 
+
 def get_system_prompt(target_language: str, llm_provider: str = "groq") -> str:
     prompt = f"""
     You are a helpful and expert {target_language} language teacher named Linguis. 
@@ -20,13 +21,16 @@ def get_system_prompt(target_language: str, llm_provider: str = "groq") -> str:
     - RELIABLE PRONUNCIATION GUIDES: For Chinese, provide Pinyin. For Japanese, provide Romaji/Hiragana. For Korean, provide Romanization.
     - SUGGESTIONS: Exactly 4 natural and diverse next sentences for the user to pick from to continue the chat. Each must have a 'suggestion' (target language) and 'translation' (English).
     """
-    
+
     if llm_provider == "local":
         prompt += "\n    CRITICAL: You must respond ONLY with a valid JSON object. Do not include any conversational filler or markdown markers like ```json."
-    
+
     return prompt
 
-def get_explanation_prompt(text: str, target_language: str, llm_provider: str = "groq") -> str:
+
+def get_explanation_prompt(
+    text: str, target_language: str, llm_provider: str = "groq"
+) -> str:
     prompt = f"""
     You are a helpful and expert {target_language} language teacher. 
     A student has selected a specific snippet from a {target_language} conversation and needs an explanation.
@@ -43,11 +47,12 @@ def get_explanation_prompt(text: str, target_language: str, llm_provider: str = 
     - A list of grammar patterns found in the snippet.
     - A list of vocabulary words with meanings and pronunciation (Pinyin for Chinese, Romanization for Korean/Japanese).
     """
-    
+
     if llm_provider == "local":
         prompt += "\n    CRITICAL: You must respond ONLY with a valid JSON object. Do not include any conversational filler or markdown markers like ```json."
-    
+
     return prompt
+
 
 def get_suggestion_prompt(target_language: str, llm_provider: str = "groq") -> str:
     prompt = f"""
@@ -69,27 +74,32 @@ def get_suggestion_prompt(target_language: str, llm_provider: str = "groq") -> s
       "translation": "I want to eat bibimbap for dinner."
     }}}}
     """
-    
+
     if llm_provider == "local":
         prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
-        
+
     return prompt
 
-def get_roleplay_prompt(scenario: dict, target_language: str, llm_provider: str = "groq") -> str:
-    objectives_list = "\n".join([f"{i}. {obj}" for i, obj in enumerate(scenario['objectives'])])
-    
+
+def get_roleplay_prompt(
+    scenario: dict, target_language: str, llm_provider: str = "groq"
+) -> str:
+    objectives_list = "\n".join(
+        [f"{i}. {obj}" for i, obj in enumerate(scenario["objectives"])]
+    )
+
     prompt = f"""
     You are roleplaying in {target_language}.
     
-    SCENARIO: {scenario['name']}
-    GOAL: {scenario['goal']}
-    YOUR ROLE: {scenario['role']}
+    SCENARIO: {scenario["name"]}
+    GOAL: {scenario["goal"]}
+    YOUR ROLE: {scenario["role"]}
     
     YOUR OBJECTIVES (You must track if the user completes these):
     {objectives_list}
     
     RULES:
-    1. Stay strictly IN CHARACTER. You are the {scenario['role']}.
+    1. Stay strictly IN CHARACTER. You are the {scenario["role"]}.
     2. Do NOT provide English translations for your character's dialogue unless the student asks for help.
     3. Monitor the user's input. If they successfully complete any of the listed objectives, mark it by including the objective's index (0-indexed) in the 'completed_objective_indices' list.
     4. Even if an objective was partially completed or mentioned before, only mark it as completed if the user has fully achieved it in the current or most recent turns.
@@ -104,13 +114,16 @@ def get_roleplay_prompt(scenario: dict, target_language: str, llm_provider: str 
     - A list of helpful hints for the remaining UNMET objectives (objective_hints). For each unmet objective, if the user made a relevant attempt but it was incomplete or incorrect, provide a brief, supportive hint in English on what they missed. The list must match the order and length of the scenario's 'objectives' list. Use an empty string if the objective was completed or no hint is needed.
     - SUGGESTIONS: Exactly 4 natural and diverse next sentences for the user to pick from to continue the chat. Each must have a 'suggestion' (target language) and 'translation' (English).
     """
-    
+
     if llm_provider == "local":
         prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
-        
+
     return prompt
 
-def get_scenario_generation_prompt(topic: str, target_language: str, llm_provider: str = "groq") -> str:
+
+def get_scenario_generation_prompt(
+    topic: str, target_language: str, llm_provider: str = "groq"
+) -> str:
     prompt = f"""
     You are an expert language learning curriculum designer for {target_language}.
     
@@ -123,14 +136,17 @@ def get_scenario_generation_prompt(topic: str, target_language: str, llm_provide
     
     Please provide the scenario details including a catchy name, a role for the AI, a clear goal, and 3-4 specific objectives.
     """
-    
+
     return prompt
 
-def get_writing_assistant_prompt(text: str, target_language: str, scenario: Optional[dict] = None) -> str:
+
+def get_writing_assistant_prompt(
+    text: str, target_language: str, scenario: Optional[dict] = None
+) -> str:
     context = ""
     if scenario:
         context = f"The student is in a roleplay: {scenario['name']} (Goal: {scenario['goal']}). "
-    
+
     prompt = f"""
     You are a professional {target_language} writing assistant. 
     A student has a draft or an idea they want to express in {target_language}.
@@ -156,7 +172,10 @@ def get_writing_assistant_prompt(text: str, target_language: str, scenario: Opti
     """
     return prompt
 
-def get_reading_generation_prompt(topic: str, target_language: str, difficulty: str, llm_provider: str = "groq") -> str:
+
+def get_reading_generation_prompt(
+    topic: str, target_language: str, difficulty: str, llm_provider: str = "groq"
+) -> str:
     prompt = f"""
     You are an expert language teacher specializing in reading comprehension for {target_language}.
     
@@ -183,8 +202,53 @@ def get_reading_generation_prompt(topic: str, target_language: str, difficulty: 
     - 4-6 key vocabulary words with pronunciation (Pinyin for Chinese, Romanization for Korean/Japanese).
     - 2-3 key grammar points used in the text.
     """
-    
+
     if llm_provider == "local":
         prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
-        
+
+    return prompt
+
+
+def get_journal_prompt_generation_prompt(
+    target_language: str, topic: Optional[str] = None
+) -> str:
+    topic_context = f"The student is interested in: {topic}. " if topic else ""
+    prompt = f"""
+    You are an expert language curriculum designer for {target_language}.
+    TASK: Generate ONE creative, engaging, and age-appropriate writing prompt for a student to write a journal entry.
+    {topic_context}
+    
+    Guidelines:
+    1. The prompt should be in English.
+    2. It should encourage descriptive writing or personal reflection.
+    3. Keep it open-ended to allow for different levels of proficiency.
+    4. Provide a brief explanation of why this is a good prompt for {target_language} learners (e.g., focuses on past tense, emotional vocabulary, etc.).
+    """
+    return prompt
+
+
+def get_journal_review_prompt(
+    content: str, target_language: str, llm_provider: str = "groq"
+) -> str:
+    prompt = f"""
+    You are a professional {target_language} language editor and teacher. 
+    A student has submitted a journal entry in {target_language} and needs a comprehensive review.
+    
+    SUBMISSION: "{content}"
+    
+    Your task:
+    1. **Grammar & Naturalness**: Break down the submission and provide specific corrections. Each correction should note if it was 'is_correct', the 'correction', and an 'explanation'.
+    2. **Natural Version**: Provide a "Native Style" rewrite of the entire entry. It should flow naturally and use idiomatic {target_language} expression while keeping the original meaning.
+    3. **Stylistic Variations**: Generate 3 variations (Formal, Casual, Natural) of the core message or a specific key sentence from the entry to show the student different ways to express the same idea.
+    4. **Vocabulary Expansion**: Identify 3-5 key words or phrases used in the corrected/natural version that the student should learn. Include their meaning and pronunciation.
+    
+    Rules:
+    - If the entry is very short, still provide all sections.
+    - Be encouraging but precise.
+    - Use clear and simple English for explanations.
+    """
+
+    if llm_provider == "local":
+        prompt += "\n    CRITICAL: Respond ONLY with a valid JSON object."
+
     return prompt

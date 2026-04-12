@@ -1,6 +1,7 @@
 from typing import List, Dict, Optional
 from pydantic import BaseModel
 
+
 class Scenario(BaseModel):
     id: str
     name: str
@@ -10,6 +11,7 @@ class Scenario(BaseModel):
     objectives: List[str]
     initial_message: str
     difficulty: str = "Beginner"
+
 
 SCENARIOS = {
     "cafe-seoul": Scenario(
@@ -22,10 +24,10 @@ SCENARIOS = {
             "Order an Iced Americano (아이스 아메리카노)",
             "Ask for less ice (얼음 적게 주세요)",
             "Add a chocolate muffin (초코 머핀)",
-            "Pay with a card (카드로 계산할게요)"
+            "Pay with a card (카드로 계산할게요)",
         ],
         initial_message="어서오세요! 주문 도와드릴까요? (Welcome! Can I take your order?)",
-        difficulty="Beginner"
+        difficulty="Beginner",
     ),
     "hotel-check-in": Scenario(
         id="hotel-check-in",
@@ -37,10 +39,10 @@ SCENARIOS = {
             "Say you have a reservation",
             "Give your name",
             "Ask what time breakfast is",
-            "Ask for the WiFi password"
+            "Ask for the WiFi password",
         ],
         initial_message="안녕하세요, 린기스 호텔입니다. 예약하셨나요?",
-        difficulty="Intermediate"
+        difficulty="Intermediate",
     ),
     "market-haggling": Scenario(
         id="market-haggling",
@@ -52,15 +54,17 @@ SCENARIOS = {
             "Ask for the price",
             "Say it's too expensive",
             "Suggest a lower price",
-            "Agree on a final price"
+            "Agree on a final price",
         ],
         initial_message="이거 진짜 좋은 거예요! 한번 구경해보세요.",
-        difficulty="Intermediate"
-    )
+        difficulty="Intermediate",
+    ),
 }
+
 
 def get_scenario(scenario_id: str) -> Optional[Scenario]:
     return SCENARIOS.get(scenario_id)
+
 
 def get_all_scenarios() -> List[Scenario]:
     return list(SCENARIOS.values())

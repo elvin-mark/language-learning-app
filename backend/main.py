@@ -12,12 +12,40 @@ import random
 import math
 
 from backend.database import create_db_and_tables, get_session, engine
-from backend.models import User, Word, GrammarPoint, ChatMessage, Conversation
+from backend.models import (
+    User,
+    Word,
+    GrammarPoint,
+    ChatMessage,
+    Conversation,
+    JournalEntry,
+)
 from backend.ai_engine import AIEngine
 from backend.ai_models import AISystemResponse
 from backend import scenarios
-from backend.schemas import ChatRequest, ChatMessageBase, UserUpdate, UserResponse, ExplainRequest, ScenarioGenerateRequest, WritingAssistRequest, WritingAssistResponse, ConversationResponse, ConversationCreate, ReadingGenerateRequest, PracticeMasteryRequest
-from backend.auth import verify_password, get_password_hash, create_access_token, decode_access_token
+from backend.schemas import (
+    ChatRequest,
+    ChatMessageBase,
+    UserUpdate,
+    UserResponse,
+    ExplainRequest,
+    ScenarioGenerateRequest,
+    WritingAssistRequest,
+    WritingAssistResponse,
+    ConversationResponse,
+    ConversationCreate,
+    ReadingGenerateRequest,
+    PracticeMasteryRequest,
+    JournalEntryCreate,
+    JournalEntryResponse,
+    JournalPromptRequest,
+)
+from backend.auth import (
+    verify_password,
+    get_password_hash,
+    create_access_token,
+    decode_access_token,
+)
 
 app = FastAPI(title="Linguis - AI Language Learning")
 api_router = APIRouter(prefix="/api")
@@ -34,113 +62,144 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
 @app.on_event("startup")
 def on_startup():
     create_db_and_tables()
 
+
 # Initialize AI Engine (needs GROQ_API_KEY or GOOGLE_API_KEY)
 ai_engine = AIEngine()
 
-async def get_current_user(token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)):
+
+async def get_current_user(
+    token: str = Depends(oauth2_scheme), session: Session = Depends(get_session)
+):
     payload = decode_access_token(token)
     if payload is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
     username = payload.get("sub")
     if username is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
-    
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+        )
+
     user = session.exec(select(User).where(User.username == username)).first()
     if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found"
+        )
     return user
+
 
 @api_router.post("/explain")
 def explain(request: ExplainRequest, current_user: User = Depends(get_current_user)):
     try:
         return ai_engine.explain_snippet(
-            request.text, 
+            request.text,
             target_language=current_user.target_language,
             llm_type=current_user.llm_type,
             cloud_provider=current_user.cloud_provider,
-            local_llm_url=current_user.local_llm_url
+            local_llm_url=current_user.local_llm_url,
         )
     except Exception as e:
         import traceback
+
         print(f"ERROR in /explain: {str(e)}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @api_router.post("/register")
 def register(username: str, password: str, session: Session = Depends(get_session)):
     existing = session.exec(select(User).where(User.username == username)).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already exists")
-    
+
     new_user = User(username=username, hashed_password=get_password_hash(password))
     session.add(new_user)
     session.commit()
     session.refresh(new_user)
     return {"msg": "User created successfully"}
 
+
 @app.post("/api/chat/assistant", response_model=WritingAssistResponse)
 async def get_writing_assistant(
     request: WritingAssistRequest,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_session)
+    db: Session = Depends(get_session),
 ):
     """Provides 3 writing variations for a draft message."""
     try:
         # Get target language from user profile
         target_language = current_user.target_language or "Korean"
-        
+
         # Get scenario context if available
         scenario = None
         if request.scenario_id:
             scenario_obj = scenarios.get_scenario(request.scenario_id)
             if scenario_obj:
-                scenario = {
-                    "name": scenario_obj.name,
-                    "goal": scenario_obj.goal
-                }
+                scenario = {"name": scenario_obj.name, "goal": scenario_obj.goal}
 
         result = await ai_engine.get_writing_assistant(
             text=request.draft_text,
             target_language=target_language,
             scenario=scenario,
-            llm_type=current_user.llm_type if hasattr(current_user, 'llm_type') else 'cloud',
-            cloud_provider=current_user.cloud_provider if hasattr(current_user, 'cloud_provider') else 'groq',
-            local_llm_url=current_user.local_llm_url if hasattr(current_user, 'local_llm_url') else None
+            llm_type=current_user.llm_type
+            if hasattr(current_user, "llm_type")
+            else "cloud",
+            cloud_provider=current_user.cloud_provider
+            if hasattr(current_user, "cloud_provider")
+            else "groq",
+            local_llm_url=current_user.local_llm_url
+            if hasattr(current_user, "local_llm_url")
+            else None,
         )
         return result
     except Exception as e:
         print(f"Assistant error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @api_router.post("/token")
-def login(form_data: OAuth2PasswordRequestForm = Depends(), session: Session = Depends(get_session)):
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    session: Session = Depends(get_session),
+):
     user = session.exec(select(User).where(User.username == form_data.username)).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
-    
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+        )
+
     access_token = create_access_token(data={"sub": user.username})
     return {
-        "access_token": access_token, 
-        "token_type": "bearer", 
+        "access_token": access_token,
+        "token_type": "bearer",
         "username": user.username,
         "target_language": user.target_language,
         "llm_type": user.llm_type,
         "cloud_provider": user.cloud_provider,
         "llm_provider": user.llm_provider,
-        "local_llm_url": user.local_llm_url
+        "local_llm_url": user.local_llm_url,
     }
+
 
 @api_router.get("/user/me", response_model=UserResponse)
 def get_me(current_user: User = Depends(get_current_user)):
     return current_user
 
+
 @api_router.patch("/user/me", response_model=UserResponse)
-def update_me(update: UserUpdate, current_user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+def update_me(
+    update: UserUpdate,
+    current_user: User = Depends(get_current_user),
+    session: Session = Depends(get_session),
+):
     if update.target_language:
         current_user.target_language = update.target_language
     if update.llm_type:
@@ -151,36 +210,48 @@ def update_me(update: UserUpdate, current_user: User = Depends(get_current_user)
         current_user.llm_provider = update.llm_provider
     if update.local_llm_url is not None:
         current_user.local_llm_url = update.local_llm_url
-    
+
     session.add(current_user)
     session.commit()
     session.refresh(current_user)
     return current_user
 
+
 @api_router.get("/stats")
-def get_stats(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-    total_words = session.exec(select(Word).where(
-        Word.user_id == current_user.id,
-        Word.language == current_user.target_language
-    )).all()
-    total_grammar = session.exec(select(GrammarPoint).where(
-        GrammarPoint.user_id == current_user.id,
-        GrammarPoint.language == current_user.target_language
-    )).all()
-    
+def get_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    total_words = session.exec(
+        select(Word).where(
+            Word.user_id == current_user.id,
+            Word.language == current_user.target_language,
+        )
+    ).all()
+    total_grammar = session.exec(
+        select(GrammarPoint).where(
+            GrammarPoint.user_id == current_user.id,
+            GrammarPoint.language == current_user.target_language,
+        )
+    ).all()
+
     # Calculate streak
-    all_user_messages = session.exec(select(ChatMessage).where(
-        ChatMessage.user_id == current_user.id,
-        ChatMessage.role == "user"
-    )).all()
-    
-    active_days = sorted(set(msg.timestamp.date() for msg in all_user_messages), reverse=True)
+    all_user_messages = session.exec(
+        select(ChatMessage).where(
+            ChatMessage.user_id == current_user.id, ChatMessage.role == "user"
+        )
+    ).all()
+
+    active_days = sorted(
+        set(msg.timestamp.date() for msg in all_user_messages), reverse=True
+    )
     streak = 0
     if active_days:
         from datetime import date, timedelta
+
         today = date.today()
         yesterday = today - timedelta(days=1)
-        
+
         # Streak continues if last activity was today or yesterday
         if active_days[0] >= yesterday:
             streak = 1
@@ -191,128 +262,161 @@ def get_stats(session: Session = Depends(get_session), current_user: User = Depe
                     current_day = active_days[i]
                 else:
                     break
-    
+
     return {
         "words_learned": len(total_words),
         "grammar_practiced": len(total_grammar),
         "daily_streak": streak,
-        "last_activity": datetime.now()
+        "last_activity": datetime.now(),
     }
 
+
 @api_router.post("/chat/suggest")
-def suggest_chat(request: List[ChatMessageBase], current_user: User = Depends(get_current_user)):
+def suggest_chat(
+    request: List[ChatMessageBase], current_user: User = Depends(get_current_user)
+):
     try:
         # Convert Pydantic history to dict
         history_dicts = [m.dict() for m in request]
-        
+
         suggestion_data = ai_engine.get_suggestion(
             target_language=current_user.target_language,
             llm_type=current_user.llm_type,
             cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url,
-            chat_history=history_dicts
+            chat_history=history_dicts,
         )
-        
+
         return suggestion_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @api_router.get("/usage")
-def get_usage(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def get_usage(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     # Aggregate tokens and request counts by date
     # We count assistant messages for tokens and user messages for requests
-    messages = session.exec(select(ChatMessage).where(
-        ChatMessage.user_id == current_user.id
-    )).all()
-    
+    messages = session.exec(
+        select(ChatMessage).where(ChatMessage.user_id == current_user.id)
+    ).all()
+
     usage_by_day = {}
     for msg in messages:
         day = msg.timestamp.strftime("%Y-%m-%d")
         if day not in usage_by_day:
             usage_by_day[day] = {"tokens": 0, "requests": 0}
-            
+
         if msg.role == "assistant" and msg.total_tokens:
             usage_by_day[day]["tokens"] += msg.total_tokens
         elif msg.role == "user":
             usage_by_day[day]["requests"] += 1
-            
+
     # Convert to sorted list of dicts for the frontend chart
     sorted_usage = [
-        {"date": d, "tokens": v["tokens"], "requests": v["requests"]} 
+        {"date": d, "tokens": v["tokens"], "requests": v["requests"]}
         for d, v in sorted(usage_by_day.items())
     ]
     return sorted_usage
+
 
 @api_router.get("/scenarios")
 def get_scenarios():
     return scenarios.get_all_scenarios()
 
+
 @api_router.get("/conversations", response_model=List[ConversationResponse])
-def get_conversations(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def get_conversations(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     return session.exec(
         select(Conversation)
         .where(Conversation.user_id == current_user.id)
         .order_by(Conversation.last_active.desc())
     ).all()
 
+
 @api_router.post("/conversations", response_model=ConversationResponse)
-def create_conversation(req: ConversationCreate, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def create_conversation(
+    req: ConversationCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     new_conv = Conversation(
         user_id=current_user.id,
         title=req.title,
         scenario_id=req.scenario_id,
-        target_language=req.target_language
+        target_language=req.target_language,
     )
     session.add(new_conv)
     session.commit()
     session.refresh(new_conv)
     return new_conv
 
+
 @api_router.delete("/conversations/{conversation_id}")
-def delete_conversation(conversation_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def delete_conversation(
+    conversation_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     conv = session.get(Conversation, conversation_id)
     if not conv or conv.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
+
     # Delete related messages first
-    messages = session.exec(select(ChatMessage).where(ChatMessage.conversation_id == conversation_id)).all()
+    messages = session.exec(
+        select(ChatMessage).where(ChatMessage.conversation_id == conversation_id)
+    ).all()
     for msg in messages:
         session.delete(msg)
-    
+
     # Delete the conversation
     session.delete(conv)
     session.commit()
     return {"status": "success"}
 
+
 @api_router.patch("/conversations/{conversation_id}")
 def update_conversation(
-    conversation_id: int, 
-    title: str, 
-    session: Session = Depends(get_session), 
-    current_user: User = Depends(get_current_user)
+    conversation_id: int,
+    title: str,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     conv = session.get(Conversation, conversation_id)
     if not conv or conv.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    
+
     conv.title = title
     session.add(conv)
     session.commit()
     session.refresh(conv)
     return conv
 
-@api_router.get("/conversations/{conversation_id}/messages", response_model=List[ChatMessage])
-def get_conversation_messages(conversation_id: int, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+
+@api_router.get(
+    "/conversations/{conversation_id}/messages", response_model=List[ChatMessage]
+)
+def get_conversation_messages(
+    conversation_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     # Verify ownership
     conv = session.get(Conversation, conversation_id)
     if not conv or conv.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Conversation not found")
-        
+
     return session.exec(
         select(ChatMessage)
         .where(ChatMessage.conversation_id == conversation_id)
         .order_by(ChatMessage.timestamp.asc())
     ).all()
+
 
 @api_router.get("/scenarios/{scenario_id}")
 def get_one_scenario(scenario_id: str):
@@ -321,62 +425,77 @@ def get_one_scenario(scenario_id: str):
         raise HTTPException(status_code=404, detail="Scenario not found")
     return s
 
+
 @api_router.post("/scenarios/generate")
-async def generate_scenario(request: ScenarioGenerateRequest, current_user: User = Depends(get_current_user)):
+async def generate_scenario(
+    request: ScenarioGenerateRequest, current_user: User = Depends(get_current_user)
+):
     try:
         scenario_data = await ai_engine.generate_scenario(
-            request.topic, 
+            request.topic,
             current_user.target_language,
             llm_type=current_user.llm_type,
             cloud_provider=current_user.cloud_provider,
-            local_llm_url=current_user.local_llm_url
+            local_llm_url=current_user.local_llm_url,
         )
         return scenario_data
     except Exception as e:
         print(f"Scenario generation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate scenario")
 
+
 @api_router.post("/reading/generate")
-async def generate_reading_task(request: ReadingGenerateRequest, current_user: User = Depends(get_current_user)):
+async def generate_reading_task(
+    request: ReadingGenerateRequest, current_user: User = Depends(get_current_user)
+):
     try:
         reading_data = await ai_engine.generate_reading_task(
-            request.topic, 
+            request.topic,
             current_user.target_language,
             request.difficulty,
             llm_type=current_user.llm_type,
             cloud_provider=current_user.cloud_provider,
-            local_llm_url=current_user.local_llm_url
+            local_llm_url=current_user.local_llm_url,
         )
         return reading_data
     except Exception as e:
         print(f"Reading generation error: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to generate reading task")
 
+
 @api_router.post("/chat")
-def chat(request: ChatRequest, session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def chat(
+    request: ChatRequest,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     try:
         # Convert Pydantic history to dict for AI Engine
         history_dicts = [m.dict() for m in request.chat_history]
-        
+
         # Get scenario context if applicable
         scenario_data = None
-        if request.scenario_id == 'custom' and request.custom_scenario:
+        if request.scenario_id == "custom" and request.custom_scenario:
             scenario_data = request.custom_scenario
         elif request.scenario_id:
             scenario_data_obj = scenarios.get_scenario(request.scenario_id)
             if scenario_data_obj:
                 scenario_data = scenario_data_obj.dict()
-        
+
         # 1. Conversation Handling
         conv_id = request.conversation_id
         if not conv_id:
             # Create a new conversation if none provided
-            title = scenario_data["name"] if scenario_data else f"Chat in {current_user.target_language}"
+            title = (
+                scenario_data["name"]
+                if scenario_data
+                else f"Chat in {current_user.target_language}"
+            )
             new_conv = Conversation(
                 user_id=current_user.id,
                 title=title,
                 scenario_id=request.scenario_id,
-                target_language=current_user.target_language
+                target_language=current_user.target_language,
             )
             session.add(new_conv)
             session.commit()
@@ -391,30 +510,30 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
 
         # 2. AI Generation
         ai_data = ai_engine.generate_response(
-            request.user_message, 
+            request.user_message,
             target_language=current_user.target_language,
             llm_type=current_user.llm_type,
             cloud_provider=current_user.cloud_provider,
             local_llm_url=current_user.local_llm_url,
             chat_history=history_dicts,
-            scenario=scenario_data
+            scenario=scenario_data,
         )
         ai_resp: AISystemResponse = ai_data["response"]
         usage = ai_data["usage"]
-        
+
         # 3. Persist User Message
         user_msg = ChatMessage(
-            role="user", 
-            content=request.user_message, 
+            role="user",
+            content=request.user_message,
             user_id=current_user.id,
             conversation_id=conv_id,
-            feedback=json.dumps(ai_resp.feedback.dict()) if ai_resp.feedback else None
+            feedback=json.dumps(ai_resp.feedback.dict()) if ai_resp.feedback else None,
         )
         session.add(user_msg)
-        
+
         # 4. Persist Assistant Message
         assistant_msg = ChatMessage(
-            role="assistant", 
+            role="assistant",
             content=ai_resp.response_target,
             user_id=current_user.id,
             conversation_id=conv_id,
@@ -422,233 +541,260 @@ def chat(request: ChatRequest, session: Session = Depends(get_session), current_
             prompt_tokens=usage.get("prompt_tokens"),
             completion_tokens=usage.get("completion_tokens"),
             total_tokens=usage.get("total_tokens"),
-            model_used=usage.get("model_name")
+            model_used=usage.get("model_name"),
         )
         session.add(assistant_msg)
-        
+
         # 4. Save new vocabulary and grammar points to DB
         for word in ai_resp.vocabulary:
-            existing = session.exec(select(Word).where(
-                Word.text == word.text, 
-                Word.user_id == current_user.id,
-                Word.language == current_user.target_language
-            )).first()
+            existing = session.exec(
+                select(Word).where(
+                    Word.text == word.text,
+                    Word.user_id == current_user.id,
+                    Word.language == current_user.target_language,
+                )
+            ).first()
             if not existing:
-                session.add(Word(
-                    text=word.text, 
-                    meaning=word.meaning, 
-                    pronunciation=word.pronunciation,
-                    example_sentence=word.example,
-                    user_id=current_user.id,
-                    language=current_user.target_language
-                ))
+                session.add(
+                    Word(
+                        text=word.text,
+                        meaning=word.meaning,
+                        pronunciation=word.pronunciation,
+                        example_sentence=word.example,
+                        user_id=current_user.id,
+                        language=current_user.target_language,
+                    )
+                )
             else:
                 existing.last_practiced = datetime.now()
                 existing.mastery_level = min(100, existing.mastery_level + 5)
-                
+
         for grammar in ai_resp.grammar:
-            existing = session.exec(select(GrammarPoint).where(
-                GrammarPoint.pattern == grammar.pattern, 
-                GrammarPoint.user_id == current_user.id,
-                GrammarPoint.language == current_user.target_language
-            )).first()
+            existing = session.exec(
+                select(GrammarPoint).where(
+                    GrammarPoint.pattern == grammar.pattern,
+                    GrammarPoint.user_id == current_user.id,
+                    GrammarPoint.language == current_user.target_language,
+                )
+            ).first()
             if not existing:
-                session.add(GrammarPoint(
-                    pattern=grammar.pattern,
-                    explanation=grammar.explanation,
-                    example=grammar.example,
-                    user_id=current_user.id,
-                    language=current_user.target_language
-                ))
+                session.add(
+                    GrammarPoint(
+                        pattern=grammar.pattern,
+                        explanation=grammar.explanation,
+                        example=grammar.example,
+                        user_id=current_user.id,
+                        language=current_user.target_language,
+                    )
+                )
             else:
                 existing.last_practiced = datetime.now()
-        
+
         session.commit()
-        
+
         # Return merged AI response with metadata
-        return {
-            **ai_resp.dict(), 
-            "conversation_id": conv_id
-        }
-        
+        return {**ai_resp.dict(), "conversation_id": conv_id}
+
     except Exception as e:
         import traceback
+
         error_detail = f"{type(e).__name__}: {str(e)}"
         print(f"ERROR in /chat: {error_detail}")
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=error_detail)
 
+
 @api_router.get("/vocabulary")
 def get_vocabulary(
-    page: int = 1, 
-    size: int = 10, 
+    page: int = 1,
+    size: int = 10,
     search: Optional[str] = None,
     sort_by: Optional[str] = "latest",  # "latest", "mastery_asc", "mastery_desc"
-    session: Session = Depends(get_session), 
-    current_user: User = Depends(get_current_user)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     query = select(Word).where(
-        Word.user_id == current_user.id,
-        Word.language == current_user.target_language
+        Word.user_id == current_user.id, Word.language == current_user.target_language
     )
-    
+
     if search:
         search_filter = f"%{search}%"
-        query = query.where(or_(
-            Word.text.like(search_filter),
-            Word.meaning.like(search_filter)
-        ))
+        query = query.where(
+            or_(Word.text.like(search_filter), Word.meaning.like(search_filter))
+        )
 
     # Apply Sorting
     if sort_by == "mastery_asc":
         query = query.order_by(asc(Word.mastery_level))
     elif sort_by == "mastery_desc":
         query = query.order_by(desc(Word.mastery_level))
-    else: # Default or latest
+    else:  # Default or latest
         query = query.order_by(desc(Word.id))
-    
+
     # Get total count for pagination
     total = session.exec(select(func.count()).select_from(query.subquery())).one()
-    
+
     # Get paginated items
     items = session.exec(query.offset((page - 1) * size).limit(size)).all()
-    
+
     return {"items": items, "total": total}
+
 
 @api_router.get("/grammar")
 def get_grammar(
-    page: int = 1, 
-    size: int = 10, 
+    page: int = 1,
+    size: int = 10,
     search: Optional[str] = None,
-    sort_by: Optional[str] = "latest", # "latest", "mastery_asc", "mastery_desc"
-    session: Session = Depends(get_session), 
-    current_user: User = Depends(get_current_user)
+    sort_by: Optional[str] = "latest",  # "latest", "mastery_asc", "mastery_desc"
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     query = select(GrammarPoint).where(
         GrammarPoint.user_id == current_user.id,
-        GrammarPoint.language == current_user.target_language
+        GrammarPoint.language == current_user.target_language,
     )
-    
+
     if search:
         search_filter = f"%{search}%"
-        query = query.where(or_(
-            GrammarPoint.pattern.like(search_filter),
-            GrammarPoint.explanation.like(search_filter)
-        ))
-        
+        query = query.where(
+            or_(
+                GrammarPoint.pattern.like(search_filter),
+                GrammarPoint.explanation.like(search_filter),
+            )
+        )
+
     # Apply Sorting
     if sort_by == "mastery_asc":
         query = query.order_by(asc(GrammarPoint.mastery_level))
     elif sort_by == "mastery_desc":
         query = query.order_by(desc(GrammarPoint.mastery_level))
-    else: # Default or latest
+    else:  # Default or latest
         query = query.order_by(desc(GrammarPoint.id))
 
     total = session.exec(select(func.count()).select_from(query.subquery())).one()
     items = session.exec(query.offset((page - 1) * size).limit(size)).all()
-    
+
     return {"items": items, "total": total}
+
 
 @api_router.get("/practice/items")
 def get_practice_items(
-    count: int = 10, 
-    session: Session = Depends(get_session), 
-    current_user: User = Depends(get_current_user)
+    count: int = 10,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     # Fetch more than needed items, then sort by mastery (asc) to prioritize unlearned items
-    words = session.exec(select(Word).where(
-        Word.user_id == current_user.id,
-        Word.language == current_user.target_language
-    ).order_by(asc(Word.mastery_level)).limit(count * 2)).all()
-    
-    grammar = session.exec(select(GrammarPoint).where(
-        GrammarPoint.user_id == current_user.id,
-        GrammarPoint.language == current_user.target_language
-    ).order_by(asc(GrammarPoint.mastery_level)).limit(count)).all()
-    
+    words = session.exec(
+        select(Word)
+        .where(
+            Word.user_id == current_user.id,
+            Word.language == current_user.target_language,
+        )
+        .order_by(asc(Word.mastery_level))
+        .limit(count * 2)
+    ).all()
+
+    grammar = session.exec(
+        select(GrammarPoint)
+        .where(
+            GrammarPoint.user_id == current_user.id,
+            GrammarPoint.language == current_user.target_language,
+        )
+        .order_by(asc(GrammarPoint.mastery_level))
+        .limit(count)
+    ).all()
+
     # Mix and normalize for flashcards, scrambles, and clozes
     items = []
-    
+
     def generate_scramble(sentence: str):
-        if not sentence: return None
+        if not sentence:
+            return None
         words = [w for w in sentence.split() if w.strip()]
-        if len(words) < 2: return None
+        if len(words) < 2:
+            return None
         shuffled = words.copy()
         random.shuffle(shuffled)
         return shuffled
 
     def generate_cloze(sentence: str, target: str):
-        if not sentence or not target: return None, None
-        
+        if not sentence or not target:
+            return None, None
+
         # Clean target (remove markers like -)
-        clean_target = target.lstrip('-').strip()
-        
+        clean_target = target.lstrip("-").strip()
+
         # 1. Try exact match
         if target in sentence:
             return sentence.replace(target, "____"), target
-        
+
         # 2. Try cleaned match (especially for grammar patterns)
         if clean_target and clean_target in sentence:
-             # Find the word containing it to replace the whole word or just the pattern?
-             # For simplicity, replace the pattern part
-             return sentence.replace(clean_target, "____"), clean_target
-             
+            # Find the word containing it to replace the whole word or just the pattern?
+            # For simplicity, replace the pattern part
+            return sentence.replace(clean_target, "____"), clean_target
+
         return None, None
 
     for w in words:
         scramble = generate_scramble(w.example_sentence)
         cloze_text, cloze_ans = generate_cloze(w.example_sentence, w.text)
-        
-        items.append({
-            "id": w.id,
-            "type": "word",
-            "front": w.text,
-            "back": w.meaning,
-            "pronunciation": w.pronunciation,
-            "example": w.example_sentence,
-            "scramble": scramble,
-            "cloze_text": cloze_text,
-            "cloze_answer": cloze_ans
-        })
-        
+
+        items.append(
+            {
+                "id": w.id,
+                "type": "word",
+                "front": w.text,
+                "back": w.meaning,
+                "pronunciation": w.pronunciation,
+                "example": w.example_sentence,
+                "scramble": scramble,
+                "cloze_text": cloze_text,
+                "cloze_answer": cloze_ans,
+            }
+        )
+
     for g in grammar:
         scramble = generate_scramble(g.example)
         cloze_text, cloze_ans = generate_cloze(g.example, g.pattern)
-        
-        items.append({
-            "id": g.id,
-            "type": "grammar",
-            "front": g.pattern,
-            "back": g.explanation,
-            "example": g.example,
-            "scramble": scramble,
-            "cloze_text": cloze_text,
-            "cloze_answer": cloze_ans
-        })
-    
+
+        items.append(
+            {
+                "id": g.id,
+                "type": "grammar",
+                "front": g.pattern,
+                "back": g.explanation,
+                "example": g.example,
+                "scramble": scramble,
+                "cloze_text": cloze_text,
+                "cloze_answer": cloze_ans,
+            }
+        )
+
     # Shuffle the top candidate pool to provide variety but keeping the trend of low mastery
     random.shuffle(items)
     return items[:count]
 
+
 @api_router.post("/practice/mastery")
 def update_mastery(
     req: PracticeMasteryRequest,
-    session: Session = Depends(get_session), 
-    current_user: User = Depends(get_current_user)
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
 ):
     if req.item_type == "word":
         item = session.get(Word, req.item_id)
     else:
         item = session.get(GrammarPoint, req.item_id)
-        
+
     if not item or item.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Item not found")
-        
+
     # Map quality 1-3 to SM-2 quality 0-5
     # 1 (Hard) -> 1, 2 (Good) -> 3, 3 (Easy) -> 5
     q_map = {1: 1, 2: 3, 3: 5}
     q = q_map.get(req.quality, 3)
-    
+
     # SM-2 Algorithm
     if q >= 3:
         if item.repetitions == 0:
@@ -661,84 +807,211 @@ def update_mastery(
     else:
         item.repetitions = 0
         item.interval = 1
-    
+
     # Update Easiness Factor
-    item.easiness_factor = item.easiness_factor + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02))
+    item.easiness_factor = item.easiness_factor + (
+        0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)
+    )
     if item.easiness_factor < 1.3:
         item.easiness_factor = 1.3
-        
+
     # Update Mastery Level (0-100)
     # Mastery increases if q >= 3, decreases if q < 3
     if q >= 3:
         item.mastery_level = min(100, item.mastery_level + (q * 2))
     else:
         item.mastery_level = max(0, item.mastery_level - 10)
-        
+
     item.last_practiced = datetime.now()
     item.next_review_date = item.last_practiced + timedelta(days=item.interval)
-    
+
     session.add(item)
     session.commit()
     return {
-        "status": "success", 
+        "status": "success",
         "new_mastery": item.mastery_level,
-        "next_review": item.next_review_date
+        "next_review": item.next_review_date,
     }
 
+
 @api_router.get("/practice/stats")
-def get_practice_stats(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
+def get_practice_stats(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
     now = datetime.now()
-    due_words = session.exec(select(func.count(Word.id)).where(
-        Word.user_id == current_user.id,
-        Word.language == current_user.target_language,
-        Word.next_review_date <= now
-    )).one()
-    
-    due_grammar = session.exec(select(func.count(GrammarPoint.id)).where(
-        GrammarPoint.user_id == current_user.id,
-        GrammarPoint.language == current_user.target_language,
-        GrammarPoint.next_review_date <= now
-    )).one()
-    
+    due_words = session.exec(
+        select(func.count(Word.id)).where(
+            Word.user_id == current_user.id,
+            Word.language == current_user.target_language,
+            Word.next_review_date <= now,
+        )
+    ).one()
+
+    due_grammar = session.exec(
+        select(func.count(GrammarPoint.id)).where(
+            GrammarPoint.user_id == current_user.id,
+            GrammarPoint.language == current_user.target_language,
+            GrammarPoint.next_review_date <= now,
+        )
+    ).one()
+
     return {
         "due_total": due_words + due_grammar,
         "due_words": due_words,
-        "due_grammar": due_grammar
+        "due_grammar": due_grammar,
     }
 
+
 @api_router.get("/analytics/mastery-distribution")
-def get_mastery_distribution(session: Session = Depends(get_session), current_user: User = Depends(get_current_user)):
-    words = session.exec(select(Word.mastery_level).where(
-        Word.user_id == current_user.id,
-        Word.language == current_user.target_language
-    )).all()
-    
-    grammar = session.exec(select(GrammarPoint.mastery_level).where(
-        GrammarPoint.user_id == current_user.id,
-        GrammarPoint.language == current_user.target_language
-    )).all()
-    
+def get_mastery_distribution(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    words = session.exec(
+        select(Word.mastery_level).where(
+            Word.user_id == current_user.id,
+            Word.language == current_user.target_language,
+        )
+    ).all()
+
+    grammar = session.exec(
+        select(GrammarPoint.mastery_level).where(
+            GrammarPoint.user_id == current_user.id,
+            GrammarPoint.language == current_user.target_language,
+        )
+    ).all()
+
     all_mastery = words + grammar
-    
+
     # Buckets: 0-20, 21-40, 41-60, 61-80, 81-100
     distribution = [0] * 5
     for m in all_mastery:
-        if m <= 20: distribution[0] += 1
-        elif m <= 40: distribution[1] += 1
-        elif m <= 60: distribution[2] += 1
-        elif m <= 80: distribution[3] += 1
-        else: distribution[4] += 1
-        
+        if m <= 20:
+            distribution[0] += 1
+        elif m <= 40:
+            distribution[1] += 1
+        elif m <= 60:
+            distribution[2] += 1
+        elif m <= 80:
+            distribution[3] += 1
+        else:
+            distribution[4] += 1
+
     return {
         "labels": ["Beginner", "Developing", "Proficient", "Advanced", "Mastered"],
-        "values": distribution
+        "values": distribution,
     }
 
-# Include the API router
+
+# Include the API router (moved to end)
+
+
+@api_router.get("/journal/prompt")
+async def get_journal_prompt(
+    topic: Optional[str] = None, current_user: User = Depends(get_current_user)
+):
+    try:
+        prompt_data = await ai_engine.generate_journal_prompt(
+            current_user.target_language,
+            topic=topic,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
+            local_llm_url=current_user.local_llm_url,
+        )
+        return prompt_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.post("/journal", response_model=JournalEntryResponse)
+async def create_journal_entry(
+    req: JournalEntryCreate,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        # 1. Get AI Review
+        review_data = await ai_engine.review_journal_entry(
+            req.content,
+            current_user.target_language,
+            llm_type=current_user.llm_type,
+            cloud_provider=current_user.cloud_provider,
+            local_llm_url=current_user.local_llm_url,
+        )
+
+        # 2. Persist to DB
+        new_entry = JournalEntry(
+            user_id=current_user.id,
+            prompt=req.prompt,
+            content=req.content,
+            feedback=json.dumps(review_data),
+            target_language=current_user.target_language,
+        )
+        session.add(new_entry)
+
+        # 3. Extract vocabulary if any
+        if "vocabulary" in review_data:
+            for word in review_data["vocabulary"]:
+                existing = session.exec(
+                    select(Word).where(
+                        Word.text == word["text"],
+                        Word.user_id == current_user.id,
+                        Word.language == current_user.target_language,
+                    )
+                ).first()
+                if not existing:
+                    session.add(
+                        Word(
+                            text=word["text"],
+                            meaning=word["meaning"],
+                            pronunciation=word.get("pronunciation"),
+                            example_sentence=word.get("example"),
+                            user_id=current_user.id,
+                            language=current_user.target_language,
+                        )
+                    )
+
+        session.commit()
+        session.refresh(new_entry)
+        return new_entry
+
+    except Exception as e:
+        import traceback
+
+        print(f"Journal creation error: {str(e)}")
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/journal", response_model=List[JournalEntryResponse])
+def get_journal_entries(
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    return session.exec(
+        select(JournalEntry)
+        .where(JournalEntry.user_id == current_user.id)
+        .order_by(JournalEntry.created_at.desc())
+    ).all()
+
+
+@api_router.get("/journal/{entry_id}", response_model=JournalEntryResponse)
+def get_journal_entry(
+    entry_id: int,
+    session: Session = Depends(get_session),
+    current_user: User = Depends(get_current_user),
+):
+    entry = session.get(JournalEntry, entry_id)
+    if not entry or entry.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Journal entry not found")
+    return entry
+
+
+# Include the API router after all routes are defined
 app.include_router(api_router)
 
 # Mount the static frontend files
-# During development, './static' might not exist, so we check
 if os.path.exists("./static"):
     app.mount("/", StaticFiles(directory="./static", html=True), name="static")
 
@@ -748,9 +1021,9 @@ if os.path.exists("./static"):
         # Don't serve API routes or existing files as SPA
         if full_path.startswith("api"):
             raise HTTPException(status_code=404)
-        
+
         index_path = os.path.join("./static", "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
-        
+
         raise HTTPException(status_code=404)
